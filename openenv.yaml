@@ -1,0 +1,10 @@
+name: autonomous-executive-assistant-sandbox
+description: Deterministic executive assistant environment backed by an in-memory SQLite workspace.
+entrypoint: src.executive_assistant.env:ExecutiveAssistantEnv
+observation_model: src.executive_assistant.models:WorkspaceObservation
+action_model: src.executive_assistant.models:AssistantAction
+reward_model: src.executive_assistant.models:TaskReward
+tasks:
+  - easy_deadline_extraction
+  - medium_triage_and_negotiation
+  - hard_rag_reply
