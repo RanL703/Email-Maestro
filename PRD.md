@@ -5,6 +5,27 @@
 
 ---
 
+## Progress Note
+Status as of 2026-04-04:
+
+- Initial repository scaffold has been created.
+- Core package structure exists under `src/executive_assistant/`.
+- Baseline environment placeholders are in place for `workspace.py`, `env.py`, `models.py`, `graders.py`, `seeds.py`, and `agent.py`.
+- Minimal Gradio app scaffold exists in `app.py`.
+- `openenv.yaml`, `requirements.txt`, `Dockerfile`, and `README.md` have been added.
+- `training_env.ipynb` has been scaffolded as a lightweight experimentation notebook and is intentionally not the source of permanent logic.
+- Basic tests were added and passed during scaffold validation.
+- Local Git baseline commit created: `ca7f46e5cb5343a7378d07f867874a39ba9e3653`.
+
+Resume from here:
+
+- Implement real environment step semantics and richer action handling.
+- Add deterministic scenario runners and stronger graders.
+- Build the baseline LLM-driven agent loop.
+- Expand the Gradio UI from reset/snapshot inspection to live episode execution.
+
+---
+
 ## 1. Executive Summary
 We are building a deterministic, isolated OpenEnv simulation of a corporate or academic workflow. Instead of wrapping a brittle, live API like Gmail (which causes rate limits and non-deterministic grading), we will engineer an **in-memory SQLite Mock Mail Server & Local File System**. 
 
