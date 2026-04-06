@@ -20,3 +20,21 @@ def test_easy_env_can_add_todo() -> None:
     )
     assert "Proposal due" in observation.active_todos
     assert reward.total_score >= 0.0
+
+
+def test_read_email_populates_current_email() -> None:
+    env = ExecutiveAssistantEnv(task_name="easy_deadline_extraction")
+    observation = env.reset()
+    observation, _ = env.step(
+        AssistantAction(action_type="read_email", target_id=observation.unread_emails[0].id)
+    )
+    assert observation.current_email is not None
+    assert "proposal due" in observation.current_email.body.lower()
+
+
+def test_search_files_populates_results() -> None:
+    env = ExecutiveAssistantEnv(task_name="hard_rag_reply")
+    env.reset()
+    observation, _ = env.step(AssistantAction(action_type="search_files", payload="Q3 Architecture"))
+    assert observation.search_results
+    assert observation.search_results[0].filename == "Q3_Architecture_Report.txt"

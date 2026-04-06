@@ -1,7 +1,14 @@
 from __future__ import annotations
 
 from src.executive_assistant.graders import grade_easy, grade_hard, grade_medium
-from src.executive_assistant.models import AssistantAction, EmailSummary, TaskReward, WorkspaceObservation
+from src.executive_assistant.models import (
+    AssistantAction,
+    EmailDetail,
+    EmailSummary,
+    FileSearchResult,
+    TaskReward,
+    WorkspaceObservation,
+)
 from src.executive_assistant.seeds import TASK_SEEDS
 from src.executive_assistant.workspace import MockWorkspace
 
@@ -11,12 +18,19 @@ class ExecutiveAssistantEnv:
         self.task_name = task_name
         self.workspace = MockWorkspace()
         self.last_action_status = "environment initialized"
+        self.current_email: EmailDetail | None = None
+        self.search_results: list[FileSearchResult] = []
+        self.step_count = 0
+        self.max_steps = 12
 
     def reset(self) -> WorkspaceObservation:
         self.workspace = MockWorkspace()
         seed = TASK_SEEDS[self.task_name]
         self.workspace.seed(seed.get("emails", []), seed.get("files", []))
         self.last_action_status = f"scenario reset: {self.task_name}"
+        self.current_email = None
+        self.search_results = []
+        self.step_count = 0
         return self.observe()
 
     def observe(self) -> WorkspaceObservation:
@@ -30,16 +44,25 @@ class ExecutiveAssistantEnv:
             for row in self.workspace.get_unread_emails()
         ]
         todos = [row["task_name"] for row in self.workspace.list_todos()]
+        recent_actions = [
+            f"{row['action_type']}: {row['status']}"
+            for row in reversed(self.workspace.list_recent_actions(limit=6))
+        ]
         return WorkspaceObservation(
             current_time="2026-04-04T10:00:00Z",
             unread_emails=unread,
             active_todos=todos,
             last_action_status=self.last_action_status,
+            current_email=self.current_email,
+            search_results=self.search_results,
+            action_history=recent_actions,
         )
 
     def step(self, action: AssistantAction) -> tuple[WorkspaceObservation, TaskReward]:
+        self.step_count += 1
         if action.action_type == "read_email" and action.target_id is not None:
             row = self.workspace.read_email(action.target_id)
+            self.current_email = EmailDetail(**dict(row)) if row else None
             self.last_action_status = "email read" if row else "email not found"
         elif action.action_type == "reply" and action.target_id is not None and action.payload:
             self.last_action_status = self.workspace.send_reply(action.target_id, action.payload)
@@ -57,18 +80,37 @@ class ExecutiveAssistantEnv:
             self.last_action_status = self.workspace.create_todo(
                 task_name=action.payload,
                 deadline_date=action.secondary_payload,
-                context=f"Created from task {self.task_name}",
+                context=(
+                    f"Created from email {self.current_email.id}: {self.current_email.subject}"
+                    if self.current_email
+                    else f"Created from task {self.task_name}"
+                ),
             )
         elif action.action_type == "archive" and action.target_id is not None:
             self.last_action_status = self.workspace.archive_email(action.target_id)
         elif action.action_type == "search_files" and action.payload:
             results = self.workspace.search_documents(action.payload)
+            self.search_results = [
+                FileSearchResult(
+                    id=row["id"],
+                    filename=row["filename"],
+                    snippet=row["content_text"][:160],
+                )
+                for row in results
+            ]
             self.last_action_status = f"search returned {len(results)} file(s)"
         else:
             self.last_action_status = "invalid action payload"
 
         observation = self.observe()
         reward = self.grade()
+        if self.step_count >= self.max_steps and not reward.is_done:
+            reward = TaskReward(
+                step_reward=reward.step_reward,
+                total_score=reward.total_score,
+                is_done=True,
+                reasoning=f"{reward.reasoning}; terminated at step budget",
+            )
         return observation, reward
 
     def grade(self) -> TaskReward:

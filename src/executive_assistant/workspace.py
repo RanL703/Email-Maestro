@@ -81,13 +81,26 @@ class MockWorkspace:
     def read_email(self, email_id: int) -> sqlite3.Row | None:
         self.connection.execute("UPDATE Emails SET is_read = 1 WHERE id = ?", (email_id,))
         self.connection.commit()
-        return self.connection.execute("SELECT * FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        row = self.connection.execute("SELECT * FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        status = "email read" if row else "email not found"
+        self.log_action("read_email", email_id, None, None, status)
+        return row
 
     def send_reply(self, email_id: int, text: str) -> str:
+        row = self.connection.execute("SELECT id FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        if row is None:
+            self.log_action("reply", email_id, text, None, "reply failed: email not found")
+            return "reply failed: email not found"
         self.log_action("reply", email_id, text, None, "reply drafted")
         return "reply drafted"
 
     def forward_email(self, email_id: int, recipient: str, note: str | None = None) -> str:
+        row = self.connection.execute("SELECT id FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        if row is None:
+            self.log_action(
+                "forward", email_id, note, recipient, "forward failed: email not found"
+            )
+            return "forward failed: email not found"
         self.log_action("forward", email_id, note, recipient, f"forwarded to {recipient}")
         return f"forwarded to {recipient}"
 
@@ -101,6 +114,10 @@ class MockWorkspace:
         return "todo created"
 
     def archive_email(self, email_id: int) -> str:
+        row = self.connection.execute("SELECT id FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        if row is None:
+            self.log_action("archive", email_id, None, None, "archive failed: email not found")
+            return "archive failed: email not found"
         self.connection.execute("UPDATE Emails SET is_archived = 1 WHERE id = ?", (email_id,))
         self.connection.commit()
         self.log_action("archive", email_id, None, None, "email archived")
@@ -121,6 +138,17 @@ class MockWorkspace:
     def list_todos(self) -> list[sqlite3.Row]:
         return self.connection.execute(
             "SELECT id, task_name, deadline_date, context FROM Todos ORDER BY id ASC"
+        ).fetchall()
+
+    def list_recent_actions(self, limit: int = 8) -> list[sqlite3.Row]:
+        return self.connection.execute(
+            """
+            SELECT id, action_type, target_id, payload, secondary_payload, status
+            FROM ActionLog
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
         ).fetchall()
 
     def log_action(

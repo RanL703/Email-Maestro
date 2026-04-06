@@ -19,10 +19,10 @@ Status as of 2026-04-04:
 
 Resume from here:
 
-- Implement real environment step semantics and richer action handling.
-- Add deterministic scenario runners and stronger graders.
-- Build the baseline LLM-driven agent loop.
-- Expand the Gradio UI from reset/snapshot inspection to live episode execution.
+- Stress-test the OpenAI-backed policy on the seeded tasks after API keys are configured and tighten prompts or schemas as needed.
+- Add richer rollout export utilities for imitation-learning or reward-model experiments.
+- Refine the Gradio UI from one-shot episode execution into a more stepwise or streaming judge-facing experience.
+- Expand notebook analysis cells for prompt comparisons, trace review, and future learned-policy training loops.
 
 ---
 

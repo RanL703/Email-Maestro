@@ -43,9 +43,25 @@ pytest
 python app.py
 ```
 
+## Episode runners
+
+Run the deterministic baseline across all seeded tasks:
+
+```bash
+python scripts/evaluate_policies.py --provider baseline
+```
+
+Run a single episode and print the full trace:
+
+```bash
+python scripts/run_policy_episode.py --task hard_rag_reply --provider baseline
+```
+
+To use the OpenAI-backed policy, set `OPENAI_API_KEY` first and then switch `--provider openai`.
+
 ## Development workflow
 
 1. Keep reusable logic in `src/executive_assistant/`.
 2. Use `training_env.ipynb` for exploration, experiments, and prompt iteration only.
 3. Promote notebook code into modules once it stabilizes.
-4. Validate behavior through unit tests and deterministic scenario checks.
+4. Validate behavior through unit tests, deterministic scenario checks, and exported episode traces.
