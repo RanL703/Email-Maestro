@@ -50,26 +50,56 @@ class EpisodeRunner:
         self.policy = policy
         self.max_steps = max_steps
 
-    def run(self, task_name: str) -> EpisodeTrace:
+    def initialize(self, task_name: str) -> tuple[ExecutiveAssistantEnv, WorkspaceObservation]:
+        """Load environment state and generate the initial observation."""
         env = ExecutiveAssistantEnv(task_name=task_name)
         env.max_steps = self.max_steps
         observation = env.reset()
+        return env, observation
+
+    def advance(
+        self,
+        task_name: str,
+        env: ExecutiveAssistantEnv,
+        observation: WorkspaceObservation,
+    ) -> tuple[PolicyDecision, WorkspaceObservation, TaskReward, EpisodeStepRecord]:
+        """
+        Execute one full agent workflow step:
+        1. Send observation to policy
+        2. Receive structured action
+        3. Execute action in workspace
+        4. Update state and capture the resulting trace record
+        """
+        decision = self.policy.choose_action(task_name, observation)
+        next_observation, reward = env.step(decision.action)
+        record = EpisodeStepRecord(
+            step_index=env.step_count,
+            reasoning=decision.reasoning,
+            action=decision.action.model_dump(),
+            observation=next_observation.model_dump(),
+            snapshot=env.workspace.snapshot(),
+            reward=reward.model_dump(),
+            status=next_observation.last_action_status,
+        )
+        return decision, next_observation, reward, record
+
+    def run(self, task_name: str) -> EpisodeTrace:
+        """
+        Agent workflow loop:
+        1. Load environment state
+        2. Generate observation
+        3. Send to policy/LLM
+        4. Receive structured action
+        5. Execute action in workspace
+        6. Update state
+        7. Repeat until task complete
+        """
+        env, observation = self.initialize(task_name)
         steps: list[EpisodeStepRecord] = []
 
         while True:
-            decision = self.policy.choose_action(task_name, observation)
-            observation, reward = env.step(decision.action)
-            steps.append(
-                EpisodeStepRecord(
-                    step_index=len(steps) + 1,
-                    reasoning=decision.reasoning,
-                    action=decision.action.model_dump(),
-                    observation=observation.model_dump(),
-                    snapshot=env.workspace.snapshot(),
-                    reward=reward.model_dump(),
-                    status=observation.last_action_status,
-                )
-            )
+            _, observation, reward, record = self.advance(task_name, env, observation)
+            steps.append(record)
             if reward.is_done:
                 return EpisodeTrace(
                     task_name=task_name,

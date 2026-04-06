@@ -115,6 +115,17 @@ Implement the three required difficulty tiers. The grader simply runs SQL querie
 4. Pass the LLM's action into the environment's `step()` function.
 5. Print the interaction loop directly in the notebook to debug prompt formatting and reward shaping.
 
+#### Agent Workflow Loop
+1. Load environment state
+2. Generate observation
+3. Send to LLM
+4. Receive structured action
+5. Execute action in workspace
+6. Update state
+7. Repeat until task complete
+
+Implementation note: this loop is now represented directly in the shared `EpisodeRunner` so the notebook, scripts, tests, and Gradio app all execute the same control flow.
+
 ### Phase 5: Hugging Face Spaces & Gradio Deployment
 **Goal:** Package the OpenEnv logic and build a visual interface so judges can physically see the agent working.
 

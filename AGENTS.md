@@ -29,3 +29,16 @@ Current history uses short, imperative commit subjects such as `Initial RL agent
 
 ## Agent-Specific Notes
 Preserve determinism in the environment, graders, and baseline policy. Live API access belongs in policy layers such as `OpenAIResponsesPolicy`, not in the workspace or reward path. Keep `EpisodeRunner` as the shared execution path for scripts, tests, Gradio, and notebook workflows. If notebook experiments uncover a useful change, codify it in `src/` and cover it with tests before treating it as part of the baseline.
+
+## Agent Workflow Loop
+All execution surfaces in this repository should follow the same loop:
+
+1. Load environment state
+2. Generate observation
+3. Send to LLM or policy
+4. Receive structured action
+5. Execute action in workspace
+6. Update state
+7. Repeat until task complete
+
+In code, keep this flow inside `EpisodeRunner`. Use `initialize()` for steps 1-2, `choose_action()` for steps 3-4, and `advance()` plus `env.step()` for steps 5-6. Do not duplicate bespoke episode loops in notebooks, scripts, or UI handlers.
