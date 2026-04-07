@@ -9,23 +9,36 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.executive_assistant.agent import BaselineAgent, OpenAIResponsesPolicy
+from src.executive_assistant.agent import BaselineAgent, OpenRouterPolicy
+from src.executive_assistant.config import OpenRouterConfig, TrainingRuntimeConfig, load_env_file
 from src.executive_assistant.runner import EpisodeRunner
 
 
 def build_policy(provider: str, model_name: str) -> object:
     if provider == "baseline":
         return BaselineAgent()
-    if provider == "openai":
-        return OpenAIResponsesPolicy(model_name=model_name)
+    if provider == "openrouter":
+        load_env_file(TrainingRuntimeConfig().env_file)
+        config = OpenRouterConfig.from_env()
+        config = OpenRouterConfig(
+            api_key=config.api_key,
+            model_name=model_name,
+            base_url=config.base_url,
+            site_url=config.site_url,
+            app_name=config.app_name,
+            temperature=config.temperature,
+            max_tokens=config.max_tokens,
+        )
+        return OpenRouterPolicy(config=config)
     raise ValueError(f"Unsupported provider: {provider}")
 
 
 def main() -> None:
+    load_env_file(TrainingRuntimeConfig().env_file)
     parser = argparse.ArgumentParser(description="Run a single policy episode.")
     parser.add_argument("--task", required=True)
-    parser.add_argument("--provider", choices=["baseline", "openai"], default="baseline")
-    parser.add_argument("--model", default="gpt-4.1-mini")
+    parser.add_argument("--provider", choices=["baseline", "openrouter"], default="baseline")
+    parser.add_argument("--model", default="google/gemma-4-31b-it")
     parser.add_argument("--max-steps", type=int, default=12)
     args = parser.parse_args()
 

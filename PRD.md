@@ -6,23 +6,26 @@
 ---
 
 ## Progress Note
-Status as of 2026-04-04:
+Status as of 2026-04-08:
 
-- Initial repository scaffold has been created.
-- Core package structure exists under `src/executive_assistant/`.
-- Baseline environment placeholders are in place for `workspace.py`, `env.py`, `models.py`, `graders.py`, `seeds.py`, and `agent.py`.
-- Minimal Gradio app scaffold exists in `app.py`.
-- `openenv.yaml`, `requirements.txt`, `Dockerfile`, and `README.md` have been added.
-- `training_env.ipynb` has been scaffolded as a lightweight experimentation notebook and is intentionally not the source of permanent logic.
-- Basic tests were added and passed during scaffold validation.
-- Local Git baseline commit created: `ca7f46e5cb5343a7378d07f867874a39ba9e3653`.
+- The deterministic SQLite-backed workspace is implemented with action logging, seeded scenarios, snapshots, and richer step semantics.
+- The OpenEnv contract is represented in typed Pydantic models for observations, actions, rewards, and policy decisions.
+- Deterministic graders are implemented for all three seeded tasks with dense reward shaping and terminal success checks.
+- A shared `EpisodeRunner` now owns the agent workflow loop across scripts, tests, the notebook, and Gradio.
+- A deterministic baseline policy is implemented and solves all three seeded tasks end to end.
+- An OpenRouter-backed `google/gemma-4-31b-it` policy path is integrated, prompt-hardened, and validated on the hard task.
+- Separate app and training environments are in place, including a registered `scalerhack2-training` Jupyter kernel.
+- The training notebook loads `.env.training`, exports traces, runs RL training, and saves checkpoints.
+- A tabular Q-learning policy exists as a seeded-task RL prototype and can be trained, evaluated, and checkpointed.
+- The current Gradio app can reset scenarios and run full episodes for baseline and OpenRouter policies.
 
 Resume from here:
 
-- Stress-test the OpenAI-backed policy on the seeded tasks after API keys are configured and tighten prompts or schemas as needed.
-- Add richer rollout export utilities for imitation-learning or reward-model experiments.
-- Refine the Gradio UI from one-shot episode execution into a more stepwise or streaming judge-facing experience.
-- Expand notebook analysis cells for prompt comparisons, trace review, and future learned-policy training loops.
+- Make the trained RL checkpoint a first-class runtime policy in the app and scripts.
+- Refine the Gradio UI from one-shot episode execution into a stepwise or streaming judge-facing experience.
+- Ensure the app, notebook, and scripts can all use the same trained RL artifact without drift.
+- Expand notebook analysis cells and runtime metrics for stronger model-vs-baseline-vs-RL comparisons.
+- Keep the current tabular RL policy as a prototype while leaving room for a richer learned policy after hackathon delivery.
 
 ---
 
@@ -38,7 +41,9 @@ This environment proves the agent's ability to act as a *router* and a *tool-use
 ## 2. Core Architecture & Stack
 * **State Management:** In-memory SQLite (`sqlite3`) simulating a mail server, calendar, and file system.
 * **Typing & Validation:** `pydantic` (Strictly defining Observations, Actions, and Rewards per OpenEnv spec).
-* **Development & Debugging:** Kaggle/Jupyter Notebooks. The entire state machine, mock server, and OpenAI API baseline will be drafted and debugged interactively in a single notebook before containerization.
+* **Development & Debugging:** Jupyter Notebooks plus scriptable runners. The state machine, model prompts, rollout export, and RL smoke training are exercised from `training_env.ipynb` and mirrored by CLI scripts.
+* **Model Runtime:** OpenRouter using `google/gemma-4-31b-it` for live policy inference, with prompt/schema hardening and response repair.
+* **RL Prototype:** Tabular Q-learning over a finite action template catalog, with teacher warm-start from the deterministic baseline and JSON checkpoint persistence.
 * **Deployment & Visualization:** Gradio (to visualize the inbox state for judges) packaged within a Docker container on Hugging Face Spaces.
 
 ---
@@ -108,12 +113,12 @@ Implement the three required difficulty tiers. The grader simply runs SQL querie
 * **Grader Logic:** Check if `search_files` was called (+0.3). Use regex to verify the specific metric string from the mock file exists in the sent reply body (+0.7).
 
 ### Phase 4: Baseline Agent Testing (Notebook Environment)
-**Goal:** Prove the environment works using an LLM.
-1. Write a `BaselineAgent` class in your notebook that takes your `OPENAI_API_KEY`.
-2. Write a standard `while not done:` loop.
-3. Pass the `WorkspaceObservation` to the LLM (using OpenAI structured outputs/function calling to ensure it returns the exact `AssistantAction` JSON).
-4. Pass the LLM's action into the environment's `step()` function.
-5. Print the interaction loop directly in the notebook to debug prompt formatting and reward shaping.
+**Goal:** Prove the environment works using both a deterministic policy and a live model-backed policy.
+1. Use the deterministic `BaselineAgent` to verify seeded tasks and grader behavior.
+2. Use a standard `while not done:` loop, now centralized in `EpisodeRunner`.
+3. Pass the `WorkspaceObservation` to the live model policy through OpenRouter using strict JSON outputs.
+4. Pass the model action into the environment's `step()` function.
+5. Print and export the interaction loop directly in the notebook to debug prompt formatting, policy behavior, and reward shaping.
 
 #### Agent Workflow Loop
 1. Load environment state
@@ -127,17 +132,18 @@ Implement the three required difficulty tiers. The grader simply runs SQL querie
 Implementation note: this loop is now represented directly in the shared `EpisodeRunner` so the notebook, scripts, tests, and Gradio app all execute the same control flow.
 
 ### Phase 5: Hugging Face Spaces & Gradio Deployment
-**Goal:** Package the OpenEnv logic and build a visual interface so judges can physically see the agent working.
+**Goal:** Package the OpenEnv logic and build a visual interface so judges can physically see the agent working, including deterministic, model-backed, and learned-policy runs.
 
 1. **The Gradio Wrapper (`app.py`):**
-   * Build a simple Gradio UI with a Chatbot window for the agent's reasoning, and DataFrames/Tables visually representing the `Emails`, `Todos`, and `Files` SQLite tables.
-   * As the OpenEnv `step()` function runs, update the Gradio state so the judges watch the inbox drain, the to-do list populate, and the replies send in real-time.
+   * Build a Gradio UI that exposes selectable policies (`baseline`, `openrouter`, and trained `rl`) and visually represents the `Emails`, `Todos`, `Files`, and action history tables.
+   * As the OpenEnv `step()` function runs, update the Gradio state step by step so judges can watch the inbox drain, the to-do list populate, and the replies send in real time.
+   * Ensure the app can load the same trained RL checkpoint artifact produced by the notebook and CLI training scripts.
 2. **Containerization (`Dockerfile`):**
    ```dockerfile
    FROM python:3.11-slim
    WORKDIR /app
-   COPY requirements.txt .
-   RUN pip install --no-cache-dir -r requirements.txt
+   COPY requirements.app.txt .
+   RUN pip install --no-cache-dir -r requirements.app.txt
    COPY . .
    # OpenEnv requires specific metadata handling, Gradio runs on 7860
    EXPOSE 7860
@@ -145,4 +151,4 @@ Implementation note: this loop is now represented directly in the shared `Episod
    CMD ["python", "app.py"]
    ```
 3. **OpenEnv Spec Compliance:** Ensure your `openenv.yaml` is correctly mapped to your Pydantic classes at the root of the repository.
-4. **Push to HF:** Commit the repo to a Hugging Face Space, tag it with `openenv`, and ensure the Baseline script is easily executable via the README instructions.
+4. **Push to HF:** Commit the repo to a Hugging Face Space, tag it with `openenv`, and ensure the policy runners and training instructions are easily executable via the README instructions.

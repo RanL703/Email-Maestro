@@ -6,7 +6,9 @@ from typing import Any
 
 class MockWorkspace:
     def __init__(self) -> None:
-        self.connection = sqlite3.connect(":memory:")
+        # Gradio executes callbacks in worker threads, so the in-memory
+        # workspace connection needs to remain usable across that boundary.
+        self.connection = sqlite3.connect(":memory:", check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
         self._create_tables()
 
@@ -66,7 +68,7 @@ class MockWorkspace:
         )
         self.connection.commit()
 
-    def get_unread_emails(self):
+    def get_unread_emails(self) -> list[sqlite3.Row]:
         return self.connection.execute(
             """
             SELECT id, sender, subject, substr(body, 1, 80) AS snippet
@@ -76,40 +78,116 @@ class MockWorkspace:
             """
         ).fetchall()
 
-    def read_email(self, email_id):
+    def read_email(self, email_id: int) -> sqlite3.Row | None:
         self.connection.execute("UPDATE Emails SET is_read = 1 WHERE id = ?", (email_id,))
         self.connection.commit()
-        return self.connection.execute("SELECT * FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        row = self.connection.execute("SELECT * FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        status = "email read" if row else "email not found"
+        self.log_action("read_email", email_id, None, None, status)
+        return row
 
-    def send_reply(self, email_id, text):
+    def send_reply(self, email_id: int, text: str) -> str:
+        row = self.connection.execute("SELECT id FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        if row is None:
+            self.log_action("reply", email_id, text, None, "reply failed: email not found")
+            return "reply failed: email not found"
+        self.log_action("reply", email_id, text, None, "reply drafted")
         return "reply drafted"
 
-    def forward_email(self, email_id, recipient, note=None):
+    def forward_email(self, email_id: int, recipient: str, note: str | None = None) -> str:
+        row = self.connection.execute("SELECT id FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        if row is None:
+            self.log_action(
+                "forward",
+                email_id,
+                note,
+                recipient,
+                "forward failed: email not found",
+            )
+            return "forward failed: email not found"
+        self.log_action("forward", email_id, note, recipient, f"forwarded to {recipient}")
         return f"forwarded to {recipient}"
 
-    def create_todo(self, task_name, deadline_date, context):
+    def create_todo(self, task_name: str, deadline_date: str | None, context: str) -> str:
         self.connection.execute(
             "INSERT INTO Todos (task_name, deadline_date, context) VALUES (?, ?, ?)",
             (task_name, deadline_date, context),
         )
         self.connection.commit()
+        self.log_action("add_todo", None, task_name, deadline_date, "todo created")
         return "todo created"
 
-    def archive_email(self, email_id):
+    def archive_email(self, email_id: int) -> str:
+        row = self.connection.execute("SELECT id FROM Emails WHERE id = ?", (email_id,)).fetchone()
+        if row is None:
+            self.log_action("archive", email_id, None, None, "archive failed: email not found")
+            return "archive failed: email not found"
         self.connection.execute("UPDATE Emails SET is_archived = 1 WHERE id = ?", (email_id,))
         self.connection.commit()
+        self.log_action("archive", email_id, None, None, "email archived")
         return "email archived"
 
-    def search_documents(self, query):
+    def search_documents(self, query: str) -> list[sqlite3.Row]:
+        results = self.connection.execute(
+            """
+            SELECT * FROM Files
+            WHERE filename LIKE ? OR content_text LIKE ?
+            ORDER BY id ASC
+            """,
+            (f"%{query}%", f"%{query}%"),
+        ).fetchall()
+        self.log_action("search_files", None, query, None, f"{len(results)} file(s) matched")
+        return results
+
+    def list_todos(self) -> list[sqlite3.Row]:
         return self.connection.execute(
-            "SELECT * FROM Files WHERE content_text LIKE ?",
-            (f"%{query}%",),
+            "SELECT id, task_name, deadline_date, context FROM Todos ORDER BY id ASC"
         ).fetchall()
 
-    def list_todos(self):
+    def list_recent_actions(self, limit: int = 6) -> list[sqlite3.Row]:
         return self.connection.execute(
-            "SELECT task_name FROM Todos"
+            """
+            SELECT id, action_type, target_id, payload, secondary_payload, status
+            FROM ActionLog
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
         ).fetchall()
 
-    def list_recent_actions(self, limit=6):
-        return []
+    def log_action(
+        self,
+        action_type: str,
+        target_id: int | None,
+        payload: str | None,
+        secondary_payload: str | None,
+        status: str,
+    ) -> None:
+        self.connection.execute(
+            """
+            INSERT INTO ActionLog (action_type, target_id, payload, secondary_payload, status)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (action_type, target_id, payload, secondary_payload, status),
+        )
+        self.connection.commit()
+
+    def snapshot(self) -> dict[str, list[dict[str, Any]]]:
+        return {
+            "emails": [
+                dict(row)
+                for row in self.connection.execute("SELECT * FROM Emails ORDER BY id ASC")
+            ],
+            "todos": [
+                dict(row)
+                for row in self.connection.execute("SELECT * FROM Todos ORDER BY id ASC")
+            ],
+            "files": [
+                dict(row)
+                for row in self.connection.execute("SELECT * FROM Files ORDER BY id ASC")
+            ],
+            "action_log": [
+                dict(row)
+                for row in self.connection.execute("SELECT * FROM ActionLog ORDER BY id ASC")
+            ],
+        }
