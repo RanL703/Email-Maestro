@@ -33,6 +33,8 @@ def test_app_stepwise_episode_generator_yields_updates(tmp_path) -> None:
     )
     first_frame = next(generator)
     assert "scenario reset" in first_frame[0]
+    assert "requested_provider" in first_frame[-1]
+    assert "Run pending" in first_frame[1] or "Run " in first_frame[1]
     later_frame = None
     for later_frame in generator:
         pass

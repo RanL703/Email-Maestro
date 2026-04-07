@@ -4,6 +4,7 @@ import json
 import os
 import time
 import uuid
+from html import escape
 
 import gradio as gr
 
@@ -20,10 +21,514 @@ TODO_COLUMNS = ["id", "task_name", "deadline_date", "context"]
 FILE_COLUMNS = ["id", "filename", "content_text"]
 ACTION_LOG_COLUMNS = ["id", "action_type", "target_id", "payload", "secondary_payload", "status"]
 TRACE_COLUMNS = ["step", "reasoning", "action_type", "status", "score", "done"]
+APP_CSS = """
+:root {
+  color-scheme: dark;
+  --ea-bg: #120f0c;
+  --ea-bg-soft: #1a1511;
+  --ea-panel: rgba(28, 22, 18, 0.88);
+  --ea-panel-strong: #241c17;
+  --ea-ink: #f5ede2;
+  --ea-muted: #b7a796;
+  --ea-border: rgba(236, 214, 188, 0.12);
+  --ea-border-strong: rgba(236, 214, 188, 0.24);
+  --ea-accent: #c97943;
+  --ea-accent-deep: #e1a16f;
+  --ea-highlight: #3a2a1f;
+  --ea-success: #72c79a;
+  --ea-danger: #ef8d76;
+  --ea-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+}
+
+.gradio-container {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(124, 73, 39, 0.22), transparent 24%),
+    radial-gradient(circle at 85% 10%, rgba(201, 121, 67, 0.16), transparent 22%),
+    linear-gradient(180deg, #17120f 0%, #0f0c0a 100%);
+  color: var(--ea-ink);
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+.gradio-container .prose,
+.gradio-container .gr-markdown,
+.gradio-container .gr-button,
+.gradio-container .gr-input,
+.gradio-container .gr-box,
+.gradio-container .gr-form,
+.gradio-container .gr-panel {
+  color: var(--ea-ink);
+}
+
+.app-shell {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 18px 18px 28px;
+}
+
+.hero {
+  background:
+    linear-gradient(140deg, rgba(33, 25, 20, 0.96), rgba(21, 17, 14, 0.96)),
+    linear-gradient(90deg, rgba(201, 121, 67, 0.12), transparent);
+  border: 1px solid var(--ea-border);
+  border-radius: 32px;
+  padding: 34px;
+  box-shadow: var(--ea-shadow);
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -44% 34%;
+  height: 220px;
+  background: radial-gradient(circle, rgba(201, 121, 67, 0.18), transparent 62%);
+  pointer-events: none;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr);
+  gap: 22px;
+  align-items: end;
+}
+
+.hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(201, 121, 67, 0.10);
+  border: 1px solid rgba(201, 121, 67, 0.18);
+  color: var(--ea-accent-deep);
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.hero-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.hero h1 {
+  margin: 0 0 12px;
+  font-family: "Baskerville", "Times New Roman", serif;
+  font-size: clamp(2.6rem, 5vw, 4.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.05em;
+  max-width: 10ch;
+}
+
+.hero p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--ea-muted);
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+.hero-strip {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.hero-pill {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ea-ink);
+  border: 1px solid rgba(236, 214, 188, 0.08);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 0.84rem;
+  backdrop-filter: blur(12px);
+}
+
+.hero-aside {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(236, 214, 188, 0.08);
+  border-radius: 24px;
+  padding: 20px;
+  backdrop-filter: blur(12px);
+}
+
+.hero-aside-label {
+  margin: 0 0 10px;
+  color: var(--ea-accent-deep);
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hero-aside-value {
+  margin: 0 0 14px;
+  font-family: "Baskerville", "Times New Roman", serif;
+  font-size: 1.6rem;
+  line-height: 1.05;
+}
+
+.hero-aside-copy {
+  margin: 0;
+  color: var(--ea-muted);
+  line-height: 1.6;
+}
+
+.panel-card,
+.status-card {
+  background: var(--ea-panel);
+  border: 1px solid var(--ea-border);
+  border-radius: 24px;
+  box-shadow: var(--ea-shadow);
+  backdrop-filter: blur(10px);
+}
+
+.panel-card {
+  padding: 18px;
+}
+
+.status-card {
+  padding: 22px 22px 18px;
+}
+
+.panel-title {
+  margin: 0 0 6px;
+  font-family: "Baskerville", "Times New Roman", serif;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+}
+
+.panel-copy {
+  margin: 0 0 16px;
+  color: var(--ea-muted);
+  line-height: 1.55;
+}
+
+.surface-card {
+  background: rgba(23, 18, 14, 0.84);
+  border: 1px solid var(--ea-border);
+  border-radius: 24px;
+  box-shadow: var(--ea-shadow);
+  overflow: hidden;
+}
+
+.surface-card .gr-tab-nav {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px 10px 0;
+  border-bottom: 1px solid var(--ea-border);
+}
+
+.surface-card .gr-tab-nav button {
+  border-radius: 16px 16px 0 0;
+  border: 1px solid transparent;
+  color: var(--ea-muted);
+  font-weight: 600;
+}
+
+.surface-card .gr-tab-nav button.selected {
+  background: var(--ea-panel-strong);
+  color: var(--ea-ink);
+  border-color: var(--ea-border);
+}
+
+.surface-card .gr-tabitem {
+  padding: 18px;
+}
+
+.status-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.status-title {
+  font-family: "Baskerville", "Times New Roman", serif;
+  font-size: 1.7rem;
+  letter-spacing: -0.04em;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 8px 13px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  border: 1px solid transparent;
+  background: rgba(201, 121, 67, 0.10);
+}
+
+.status-badge.running,
+.status-badge.initialized {
+  border-color: rgba(180, 95, 45, 0.18);
+  color: var(--ea-accent-deep);
+}
+
+.status-badge.completed.success {
+  background: rgba(45, 122, 88, 0.10);
+  border-color: rgba(45, 122, 88, 0.18);
+  color: var(--ea-success);
+}
+
+.status-badge.completed.failure {
+  background: rgba(178, 76, 56, 0.10);
+  border-color: rgba(178, 76, 56, 0.16);
+  color: var(--ea-danger);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.metric {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(236, 214, 188, 0.08);
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.metric-label {
+  color: var(--ea-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  margin-bottom: 7px;
+}
+
+.metric-value {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.status-reason {
+  background: rgba(201, 121, 67, 0.08);
+  border: 1px solid rgba(236, 214, 188, 0.08);
+  border-radius: 18px;
+  padding: 14px 15px;
+  color: var(--ea-muted);
+  line-height: 1.55;
+}
+
+.scenario-brief {
+  background: linear-gradient(180deg, rgba(32, 25, 20, 0.92), rgba(22, 18, 14, 0.94));
+  border: 1px solid var(--ea-border);
+  border-radius: 24px;
+  padding: 22px;
+  color: var(--ea-ink);
+  box-shadow: var(--ea-shadow);
+}
+
+.scenario-brief h3 {
+  margin: 0 0 10px;
+  font-family: "Baskerville", "Times New Roman", serif;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+}
+
+.scenario-brief p {
+  margin: 0 0 14px;
+  color: var(--ea-muted);
+  line-height: 1.6;
+}
+
+.scenario-brief ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ea-ink);
+}
+
+.scenario-brief li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.panel-card .gr-form,
+.panel-card .gr-box,
+.panel-card .gr-group {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.panel-card .gr-button,
+.gradio-container .gr-button {
+  min-height: 48px;
+  border-radius: 999px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.gradio-container button.primary {
+  background: linear-gradient(135deg, var(--ea-accent) 0%, var(--ea-accent-deep) 100%);
+  border: 0;
+  box-shadow: 0 14px 30px rgba(138, 62, 23, 0.18);
+}
+
+.gradio-container button.secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--ea-border-strong);
+  color: var(--ea-ink);
+}
+
+.gradio-container label,
+.gradio-container .gr-block-label,
+.gradio-container .gr-form > label {
+  color: var(--ea-muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.gradio-container input,
+.gradio-container textarea,
+.gradio-container select {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(236, 214, 188, 0.12) !important;
+  border-radius: 16px !important;
+  color: var(--ea-ink) !important;
+}
+
+.gradio-container .gr-accordion,
+.gradio-container .gr-panel,
+.gradio-container .gr-box,
+.gradio-container .block {
+  border-color: var(--ea-border) !important;
+}
+
+.workspace-grid .gr-dataframe,
+.workspace-grid .gr-code,
+.workspace-grid .gr-box,
+.workspace-grid .gr-panel {
+  border-radius: 20px !important;
+  overflow: hidden;
+}
+
+.workspace-grid .gr-code,
+.workspace-grid .gr-dataframe {
+  box-shadow: inset 0 0 0 1px rgba(58, 43, 28, 0.06);
+}
+
+.workspace-grid table {
+  font-size: 0.92rem;
+}
+
+.footnote {
+  margin-top: 14px;
+  color: var(--ea-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 1120px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 980px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 24px 18px;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell {
+    padding: 12px 12px 20px;
+  }
+}
+"""
+SCENARIO_GUIDANCE = {
+    "easy_deadline_extraction": {
+        "title": "Deadline Extraction",
+        "description": "Read the professor email, capture the three exact milestones as todos, then archive the source email once the list is complete.",
+        "checks": [
+            "Read the source email before creating todos.",
+            "Create exactly three canonical todos with ISO dates.",
+            "Archive the email only after all deadlines are captured.",
+        ],
+    },
+    "medium_triage_and_negotiation": {
+        "title": "Inbox Triage And Negotiation",
+        "description": "Clear low-value newsletters, escalate the client complaint to the manager, and send a concrete meeting time to the teammate without archiving unresolved important mail too early.",
+        "checks": [
+            "Archive all three newsletters.",
+            "Forward the client complaint to manager@company.com.",
+            "Reply to the teammate with a specific meeting time.",
+        ],
+    },
+    "hard_rag_reply": {
+        "title": "RAG Reply",
+        "description": "Read the stakeholder request, search the local report store, and reply with the exact Q3 metrics from the matching file.",
+        "checks": [
+            "Read the VIP email first.",
+            "Search for the Q3 architecture report before replying.",
+            "Reply with 99.95%, 182ms, and 14% plus a greeting and signoff.",
+        ],
+    },
+}
 
 
 def _records_to_rows(records: list[dict], columns: list[str]) -> list[list[object]]:
     return [[record.get(column) for column in columns] for record in records]
+
+
+def render_scenario_brief(task_name: str) -> str:
+    guidance = SCENARIO_GUIDANCE[task_name]
+    checks = "".join(f"<li>{escape(item)}</li>" for item in guidance["checks"])
+    return (
+        '<div class="scenario-brief">'
+        f"<h3>{escape(guidance['title'])}</h3>"
+        f"<p>{escape(guidance['description'])}</p>"
+        f"<ul>{checks}</ul>"
+        "</div>"
+    )
+
+
+def render_status_card(summary_payload: dict) -> str:
+    status = str(summary_payload["status"])
+    completed = bool(summary_payload["completed"])
+    badge_class = f"status-badge {status} {'success' if completed else 'failure'}".strip()
+    return (
+        '<div class="status-card">'
+        '<div class="status-topline">'
+        f'<div class="status-title">Run {escape(str(summary_payload["run_id"]))}</div>'
+        f'<div class="{badge_class}">{escape(status)}</div>'
+        "</div>"
+        '<div class="metric-grid">'
+        f'<div class="metric"><div class="metric-label">Requested Provider</div><div class="metric-value">{escape(str(summary_payload["requested_provider"]))}</div></div>'
+        f'<div class="metric"><div class="metric-label">Effective Policy</div><div class="metric-value">{escape(str(summary_payload["policy_name"]))}</div></div>'
+        f'<div class="metric"><div class="metric-label">Scenario</div><div class="metric-value">{escape(str(summary_payload["task_name"]))}</div></div>'
+        f'<div class="metric"><div class="metric-label">Final Score</div><div class="metric-value">{summary_payload["final_score"]:.2f}</div></div>'
+        "</div>"
+        '<div class="metric-grid">'
+        f'<div class="metric"><div class="metric-label">Model</div><div class="metric-value">{escape(str(summary_payload["model_name"] or "n/a"))}</div></div>'
+        f'<div class="metric"><div class="metric-label">Checkpoint</div><div class="metric-value">{escape(str(summary_payload["checkpoint_path"] or "n/a"))}</div></div>'
+        f'<div class="metric"><div class="metric-label">Completed</div><div class="metric-value">{escape(str(completed))}</div></div>'
+        f'<div class="metric"><div class="metric-label">Status</div><div class="metric-value">{escape(status)}</div></div>'
+        "</div>"
+        f'<div class="status-reason">{escape(str(summary_payload["termination_reason"]))}</div>'
+        "</div>"
+    )
 
 
 def build_snapshot(task_name: str) -> tuple[str, list[list[object]], list[list[object]], list[list[object]], list[list[object]]]:
@@ -117,9 +622,10 @@ def _step_payload(
     snapshot_payload: dict,
     trace_rows: list[dict],
     summary_payload: dict,
-) -> tuple[str, list[list[object]], list[list[object]], list[list[object]], list[list[object]], list[list[object]], str]:
+) -> tuple[str, str, list[list[object]], list[list[object]], list[list[object]], list[list[object]], list[list[object]], str]:
     return (
         json.dumps(observation_payload, indent=2),
+        render_status_card(summary_payload),
         _records_to_rows(snapshot_payload["emails"], EMAIL_COLUMNS),
         _records_to_rows(snapshot_payload["todos"], TODO_COLUMNS),
         _records_to_rows(snapshot_payload["files"], FILE_COLUMNS),
@@ -136,6 +642,23 @@ def configure_provider_inputs(provider: str) -> tuple[dict, dict, dict]:
         gr.update(visible=is_openrouter, interactive=is_openrouter),
         gr.update(visible=is_openrouter, interactive=is_openrouter),
         gr.update(visible=is_rl, interactive=is_rl),
+    )
+
+
+def build_initial_status(task_name: str, provider: str, model_name: str, checkpoint_path: str) -> str:
+    return render_status_card(
+        _summary_payload(
+            run_id="pending",
+            task_name=task_name,
+            provider=provider,
+            policy_name="not started",
+            model_name=model_name,
+            checkpoint_path=checkpoint_path or _default_rl_checkpoint(),
+            status="initialized",
+            final_score=0.0,
+            completed=False,
+            termination_reason="Choose a policy and start an episode.",
+        )
     )
 
 
@@ -214,60 +737,151 @@ def run_live_episode(
 
 
 with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
-    gr.Markdown("# Autonomous Executive Assistant Sandbox")
-    gr.Markdown(
-        "Deterministic executive-assistant sandbox with live episode execution for the baseline policy and OpenRouter Gemma."
-    )
-
-    with gr.Row():
-        task = gr.Dropdown(
-            choices=[
-                "easy_deadline_extraction",
-                "medium_triage_and_negotiation",
-                "hard_rag_reply",
-            ],
-            value="easy_deadline_extraction",
-            label="Scenario",
+    with gr.Column(elem_classes=["app-shell"]):
+        gr.HTML(
+            """
+            <section class="hero">
+              <div class="hero-grid">
+                <div class="hero-copy">
+                  <div class="hero-kicker">Deterministic Eval Console</div>
+                  <h1>Executive Assistant Sandbox</h1>
+                  <p>
+                    Run the exact same episode loop used in training, inspect each workspace mutation in real time,
+                    and compare baseline, RL, and OpenRouter-backed policies without losing the structure of the task.
+                  </p>
+                  <div class="hero-strip">
+                    <div class="hero-pill">Shared EpisodeRunner path</div>
+                    <div class="hero-pill">Seeded scenarios with visible state</div>
+                    <div class="hero-pill">Policy debugging without notebook sprawl</div>
+                  </div>
+                </div>
+                <aside class="hero-aside">
+                  <p class="hero-aside-label">What This UI Optimizes For</p>
+                  <p class="hero-aside-value">Fast policy comparison with readable state.</p>
+                  <p class="hero-aside-copy">
+                    The interface is intentionally light, structured, and editorial rather than “chat app” themed.
+                    Controls stay compact while the workspace and trace remain the visual priority.
+                  </p>
+                </aside>
+              </div>
+            </section>
+            """
         )
-        provider = gr.Dropdown(
-            choices=["baseline", "openrouter", "rl"],
-            value="baseline",
-            label="Policy",
-        )
-        model_name = gr.Textbox(value="google/gemma-4-31b-it", label="OpenRouter Model")
-        max_steps = gr.Number(value=12, precision=0, label="Max Steps")
-    checkpoint_path = gr.Textbox(
-        value=_default_rl_checkpoint(),
-        label="RL Checkpoint Path",
-    )
-    api_key = gr.Textbox(type="password", label="OPENROUTER_API_KEY (optional for baseline)")
 
-    with gr.Row():
-        reset = gr.Button("Reset Scenario")
-        run_episode_btn = gr.Button("Run Episode")
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=4):
+                with gr.Group(elem_classes=["panel-card"]):
+                    gr.HTML(
+                        """
+                        <h2 class="panel-title">Control Room</h2>
+                        <p class="panel-copy">
+                          Pick a scenario, choose a policy provider, and run a stepwise episode against the same environment used by training and evaluation.
+                        </p>
+                        """
+                    )
+                    task = gr.Dropdown(
+                        choices=[
+                            "easy_deadline_extraction",
+                            "medium_triage_and_negotiation",
+                            "hard_rag_reply",
+                        ],
+                        value="easy_deadline_extraction",
+                        label="Scenario",
+                    )
+                    provider = gr.Dropdown(
+                        choices=["baseline", "openrouter", "rl"],
+                        value="baseline",
+                        label="Policy",
+                    )
+                    max_steps = gr.Number(value=12, precision=0, label="Max Steps")
+                    with gr.Accordion("Provider Settings", open=False):
+                        model_name = gr.Textbox(
+                            value="google/gemma-4-31b-it",
+                            label="OpenRouter Model",
+                        )
+                        checkpoint_path = gr.Textbox(
+                            value=_default_rl_checkpoint(),
+                            label="RL Checkpoint Path",
+                        )
+                        api_key = gr.Textbox(
+                            type="password",
+                            label="OPENROUTER_API_KEY",
+                        )
+                    with gr.Row():
+                        reset = gr.Button("Reset Scenario", variant="secondary")
+                        run_episode_btn = gr.Button("Run Episode", variant="primary")
+                    gr.HTML(
+                        """
+                        <p class="footnote">
+                          OpenRouter inputs appear only when needed. RL checkpoint selection stays available for policy replay without changing the execution path.
+                        </p>
+                        """
+                    )
+            with gr.Column(scale=5):
+                scenario_brief = gr.HTML(render_scenario_brief("easy_deadline_extraction"))
+                status_card = gr.HTML(
+                    build_initial_status(
+                        "easy_deadline_extraction",
+                        "baseline",
+                        "google/gemma-4-31b-it",
+                        _default_rl_checkpoint(),
+                    )
+                )
 
-    observation = gr.Code(label="Observation", language="json")
-    emails = gr.Dataframe(headers=EMAIL_COLUMNS, label="Unread Emails")
-    todos = gr.Dataframe(headers=TODO_COLUMNS, label="Todos")
-    files = gr.Dataframe(headers=FILE_COLUMNS, label="Search Results")
-    action_log = gr.Dataframe(headers=ACTION_LOG_COLUMNS, label="Action Log")
-    trace_table = gr.Dataframe(headers=TRACE_COLUMNS, label="Episode Trace")
-    summary = gr.Code(label="Run Summary", language="json")
+        with gr.Group(elem_classes=["surface-card", "workspace-grid"]):
+            with gr.Tabs():
+                with gr.Tab("Live Workspace"):
+                    with gr.Row():
+                        observation = gr.Code(label="Observation", language="json")
+                        summary = gr.Code(label="Run Summary", language="json")
+                    with gr.Row():
+                        emails = gr.Dataframe(headers=EMAIL_COLUMNS, label="Unread Emails")
+                        todos = gr.Dataframe(headers=TODO_COLUMNS, label="Todos")
+                    with gr.Row():
+                        files = gr.Dataframe(headers=FILE_COLUMNS, label="Search Results")
+                        action_log = gr.Dataframe(headers=ACTION_LOG_COLUMNS, label="Action Log")
+                with gr.Tab("Episode Trace"):
+                    trace_table = gr.Dataframe(headers=TRACE_COLUMNS, label="Episode Trace")
 
     reset.click(
         fn=build_snapshot,
         inputs=[task],
         outputs=[observation, emails, todos, files, action_log],
     )
+    reset.click(
+        fn=render_scenario_brief,
+        inputs=[task],
+        outputs=[scenario_brief],
+    )
+    reset.click(
+        fn=build_initial_status,
+        inputs=[task, provider, model_name, checkpoint_path],
+        outputs=[status_card],
+    )
     provider.change(
         fn=configure_provider_inputs,
         inputs=[provider],
         outputs=[model_name, api_key, checkpoint_path],
     )
+    provider.change(
+        fn=build_initial_status,
+        inputs=[task, provider, model_name, checkpoint_path],
+        outputs=[status_card],
+    )
+    task.change(
+        fn=render_scenario_brief,
+        inputs=[task],
+        outputs=[scenario_brief],
+    )
+    task.change(
+        fn=build_initial_status,
+        inputs=[task, provider, model_name, checkpoint_path],
+        outputs=[status_card],
+    )
     run_episode_btn.click(
         fn=run_live_episode,
         inputs=[task, provider, model_name, api_key, max_steps, checkpoint_path],
-        outputs=[observation, emails, todos, files, action_log, trace_table, summary],
+        outputs=[observation, status_card, emails, todos, files, action_log, trace_table, summary],
     )
 
     demo.load(
@@ -279,6 +893,16 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
         fn=configure_provider_inputs,
         inputs=[provider],
         outputs=[model_name, api_key, checkpoint_path],
+    )
+    demo.load(
+        fn=render_scenario_brief,
+        inputs=[task],
+        outputs=[scenario_brief],
+    )
+    demo.load(
+        fn=build_initial_status,
+        inputs=[task, provider, model_name, checkpoint_path],
+        outputs=[status_card],
     )
 
 
@@ -287,4 +911,5 @@ if __name__ == "__main__":
         server_name=APP_RUNTIME.host,
         server_port=APP_RUNTIME.port,
         show_error=True,
+        css=APP_CSS,
     )
