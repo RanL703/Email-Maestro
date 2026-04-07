@@ -322,13 +322,13 @@ class OpenAIResponsesPolicy:
 
 
 def run_episode(task_name: str, max_steps: int = 12) -> EpisodeTrace:
-    runner = EpisodeRunner(policy=BaselineAgent(), max_steps=max_steps)
+    runner = EpisodeRunner(policy = OpenAIResponsesPolicy(), max_steps=max_steps)
     return runner.run(task_name)
 
 
 def smoke_test_training_pipeline() -> dict[str, EpisodeTrace]:
     return run_policy_suite(
-        policy=BaselineAgent(),
+        policy = OpenAIResponsesPolicy(),
         task_names=[
             "easy_deadline_extraction",
             "medium_triage_and_negotiation",
