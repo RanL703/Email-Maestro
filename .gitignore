@@ -5,4 +5,5 @@ artifacts/
 __pycache__/
 .env
 .env.app
+.env.hf.space
 .env.training

@@ -2,6 +2,8 @@
 
 Deterministic RL-style workspace for an executive-assistant agent operating over a mock inbox, todo list, and local document store.
 
+This project is being packaged for deployment to Hugging Face Spaces as a judge-facing demo for the **OpenEnv Scaler x Meta x PyTorch Hack**. The hack dashboard currently lists the main build round as **March 25, 2026 through April 8, 2026**, with finals on **April 25-26, 2026** in Bengaluru.
+
 ## Project status
 
 This repository is scaffolded from the product requirements in [PRD.md](./PRD.md). The current setup establishes:
@@ -87,6 +89,49 @@ Start the deployed app runtime:
 ```
 
 To use the OpenRouter-backed Gemma policy, set `OPENROUTER_API_KEY` first and then switch `--provider openrouter`.
+
+## Hugging Face Spaces deployment
+
+The repository now includes a one-command Hugging Face Spaces deployment path that stages a Space-friendly bundle, injects a discrete HF `README.md`, carries over the RL checkpoint, creates or updates the Space, uploads the app, and sets runtime metadata variables.
+
+1. Create the training environment if you have not already:
+
+```bash
+bash scripts/setup_training_env.sh
+```
+
+2. Prepare deployment variables:
+
+```bash
+cp .env.hf.space.example .env.hf.space
+```
+
+3. Fill in at least:
+
+- `HF_TOKEN`
+- `HF_SPACE_REPO`
+- `HF_SPACE_TEAM_USERNAMES`
+
+4. Deploy in one command:
+
+```bash
+bash scripts/deploy_hf_space.sh
+```
+
+What the deploy pipeline does:
+
+- creates the target Space with `sdk=docker`
+- stages a clean bundle without local `.env` files, virtualenvs, caches, or git metadata
+- writes a discrete HF Space `README.md` addressed to **Project Epsilon**
+- bundles `artifacts/checkpoints/q_policy_notebook.json` for the `rl` policy, or trains a fresh checkpoint if one is missing
+- uploads the Space contents and sets `OPENROUTER_APP_NAME` and `OPENROUTER_SITE_URL`
+- optionally sets `OPENROUTER_API_KEY` on the Space when it is present locally
+
+Supporting deployment docs:
+
+- HF README example: [docs/HF_SPACE_README.md](./docs/HF_SPACE_README.md)
+- Deployment env template: [.env.hf.space.example](./.env.hf.space.example)
+- Deployment script: [scripts/deploy_hf_space.py](./scripts/deploy_hf_space.py)
 
 ## Development workflow
 

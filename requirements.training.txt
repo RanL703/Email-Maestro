@@ -1,4 +1,5 @@
 -r requirements.txt
+huggingface_hub>=0.31.0
 jupyterlab>=4.2.0
 ipykernel>=6.29.0
 pandas>=2.2.0
