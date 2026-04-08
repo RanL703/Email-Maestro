@@ -36,13 +36,23 @@ class OpenRouterConfig:
     def from_env(cls, env_file: str | Path | None = None) -> "OpenRouterConfig":
         if env_file is not None:
             load_env_file(env_file)
-        api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+        api_key = os.environ.get("OPENROUTER_API_KEY", "").strip() or os.environ.get(
+            "OPENAI_API_KEY", ""
+        ).strip()
         if not api_key:
-            raise RuntimeError("OPENROUTER_API_KEY is required for OpenRouter model access.")
+            raise RuntimeError(
+                "OPENROUTER_API_KEY or OPENAI_API_KEY is required for model access."
+            )
         return cls(
             api_key=api_key,
-            model_name=os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it"),
-            base_url=os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+            model_name=os.environ.get(
+                "OPENROUTER_MODEL",
+                os.environ.get("MODEL_NAME", "google/gemma-4-31b-it"),
+            ),
+            base_url=os.environ.get(
+                "OPENROUTER_BASE_URL",
+                os.environ.get("API_BASE_URL", "https://openrouter.ai/api/v1"),
+            ),
             site_url=os.environ.get("OPENROUTER_SITE_URL", "http://localhost:7860"),
             app_name=os.environ.get(
                 "OPENROUTER_APP_NAME",

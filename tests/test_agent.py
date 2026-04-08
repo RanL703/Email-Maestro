@@ -73,8 +73,8 @@ def test_openrouter_policy_sanitizes_hard_reply_payload() -> None:
     )
     env = ExecutiveAssistantEnv(task_name="hard_rag_reply")
     observation = env.reset()
-    observation, _ = env.step(AssistantAction(action_type="read_email", target_id=1))
-    observation, _ = env.step(AssistantAction(action_type="search_files", payload="Q3 Architecture"))
+    observation, _, _, _ = env.step(AssistantAction(action_type="read_email", target_id=1))
+    observation, _, _, _ = env.step(AssistantAction(action_type="search_files", payload="Q3 Architecture"))
     decision = policy.choose_action("hard_rag_reply", observation)
     assert decision.action.payload is not None
     assert decision.action.payload.lower().startswith("hello")
@@ -123,7 +123,7 @@ def test_openrouter_policy_normalizes_easy_todo_payload() -> None:
     )
     env = ExecutiveAssistantEnv(task_name="easy_deadline_extraction")
     observation = env.reset()
-    observation, _ = env.step(AssistantAction(action_type="read_email", target_id=1))
+    observation, _, _, _ = env.step(AssistantAction(action_type="read_email", target_id=1))
     decision = policy.choose_action("easy_deadline_extraction", observation)
     assert decision.action.payload == "Proposal Due"
     assert decision.action.secondary_payload == "2026-04-10"
@@ -148,10 +148,10 @@ def test_openrouter_policy_repairs_medium_forward_fields() -> None:
     )
     env = ExecutiveAssistantEnv(task_name="medium_triage_and_negotiation")
     observation = env.reset()
-    observation, _ = env.step(AssistantAction(action_type="archive", target_id=1))
-    observation, _ = env.step(AssistantAction(action_type="archive", target_id=2))
-    observation, _ = env.step(AssistantAction(action_type="archive", target_id=3))
-    observation, _ = env.step(AssistantAction(action_type="read_email", target_id=4))
+    observation, _, _, _ = env.step(AssistantAction(action_type="archive", target_id=1))
+    observation, _, _, _ = env.step(AssistantAction(action_type="archive", target_id=2))
+    observation, _, _, _ = env.step(AssistantAction(action_type="archive", target_id=3))
+    observation, _, _, _ = env.step(AssistantAction(action_type="read_email", target_id=4))
     decision = policy.choose_action("medium_triage_and_negotiation", observation)
     assert decision.action.target_id == 4
     assert decision.action.secondary_payload == "manager@company.com"

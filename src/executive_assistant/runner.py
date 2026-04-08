@@ -71,13 +71,13 @@ class EpisodeRunner:
         4. Update state and capture the resulting trace record
         """
         decision = self.policy.choose_action(task_name, observation)
-        next_observation, reward = env.step(decision.action)
+        next_observation, reward, done, info = env.step(decision.action)
         record = EpisodeStepRecord(
             step_index=env.step_count,
             reasoning=decision.reasoning,
             action=decision.action.model_dump(),
             observation=next_observation.model_dump(),
-            snapshot=env.workspace.snapshot(),
+            snapshot=info["state"]["workspace"],
             reward=reward.model_dump(),
             status=next_observation.last_action_status,
         )

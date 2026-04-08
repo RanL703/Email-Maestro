@@ -13,14 +13,16 @@ def test_parse_hf_usernames_strips_at_signs() -> None:
     assert usernames == ("alice", "bob", "carol")
 
 
-def test_render_space_readme_includes_project_epsilon_placeholders() -> None:
+def test_render_space_readme_includes_team_epsilon_roster() -> None:
     config = HFSpaceDeployConfig(
-        repo_id="placeholder/project-epsilon-executive-assistant",
-        hf_usernames=("HF_USERNAME_1", "HF_USERNAME_2"),
+        repo_id="Flickinshots/EmailMaestro",
+        team_name="Team Epsilon",
+        hf_usernames=("flickinshots", "ShreyaKhatik", "itsayushdey"),
     )
     rendered = render_space_readme(config)
-    assert "Project Epsilon" in rendered
-    assert "@HF_USERNAME_1" in rendered
+    assert "Team Epsilon" in rendered
+    assert "@flickinshots" in rendered
+    assert "Team lead and primary Space owner" in rendered
     assert "sdk: docker" in rendered
     assert "OpenEnv Scaler x Meta x PyTorch Hack" in rendered
 

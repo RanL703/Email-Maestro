@@ -20,10 +20,10 @@ for step in range(10):
     print("Reasoning:", decision.reasoning)
     print("Action:", decision.action)
 
-    obs, reward = env.step(decision.action)
+    obs, reward, done, _ = env.step(decision.action)
 
     print("Reward:", reward)
     
-    if reward.is_done:
+    if done:
         print("\nTASK COMPLETE ✅")
         break

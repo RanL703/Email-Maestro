@@ -33,6 +33,18 @@ class ExecutiveAssistantEnv:
         self.step_count = 0
         return self.observe()
 
+    def state(self) -> dict[str, object]:
+        return {
+            "task_name": self.task_name,
+            "step_count": self.step_count,
+            "max_steps": self.max_steps,
+            "last_action_status": self.last_action_status,
+            "current_email": self.current_email.model_dump() if self.current_email else None,
+            "search_results": [result.model_dump() for result in self.search_results],
+            "observation": self.observe().model_dump(),
+            "workspace": self.workspace.snapshot(),
+        }
+
     def observe(self) -> WorkspaceObservation:
         unread = [
             EmailSummary(
@@ -58,7 +70,7 @@ class ExecutiveAssistantEnv:
             action_history=recent_actions,
         )
 
-    def step(self, action: AssistantAction) -> tuple[WorkspaceObservation, TaskReward]:
+    def step(self, action: AssistantAction) -> tuple[WorkspaceObservation, TaskReward, bool, dict[str, object]]:
         self.step_count += 1
         if action.action_type == "read_email" and action.target_id is not None:
             row = self.workspace.read_email(action.target_id)
@@ -111,7 +123,17 @@ class ExecutiveAssistantEnv:
                 is_done=True,
                 reasoning=f"{reward.reasoning}; terminated at step budget",
             )
-        return observation, reward
+        done = reward.is_done
+        info = {
+            "task_name": self.task_name,
+            "step_count": self.step_count,
+            "max_steps": self.max_steps,
+            "status": self.last_action_status,
+            "reasoning": reward.reasoning,
+            "total_score": reward.total_score,
+            "state": self.state(),
+        }
+        return observation, reward, done, info
 
     def grade(self) -> TaskReward:
         if self.task_name == "easy_deadline_extraction":

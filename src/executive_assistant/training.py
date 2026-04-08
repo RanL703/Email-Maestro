@@ -302,7 +302,7 @@ def train_q_learning(
             state = encode_observation(task_name, observation)
             decision = learner.choose_action(task_name, observation)
             action_name = action_name_from_decision(decision, observation)
-            next_observation, reward = env.step(decision.action)
+            next_observation, reward, _, _ = env.step(decision.action)
             next_state = encode_observation(task_name, next_observation)
             reward_delta = reward.total_score - previous_total_score - 0.01
             previous_total_score = reward.total_score
