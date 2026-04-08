@@ -191,10 +191,12 @@ APP_CSS = """
 
 .panel-card {
   padding: 18px;
+  overflow: visible;
 }
 
 .status-card {
   padding: 22px 22px 18px;
+  overflow: hidden;
 }
 
 .panel-title {
@@ -208,6 +210,24 @@ APP_CSS = """
   margin: 0 0 16px;
   color: var(--ea-muted);
   line-height: 1.55;
+}
+
+.control-room {
+  background:
+    linear-gradient(180deg, rgba(45, 40, 49, 0.82), rgba(34, 28, 24, 0.94) 18%, rgba(28, 23, 19, 0.96) 100%);
+  border: 1px solid rgba(236, 214, 188, 0.10);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.control-room .panel-title {
+  margin-bottom: 8px;
+}
+
+.control-room .panel-copy {
+  max-width: 56ch;
+  color: #cdbca9;
 }
 
 .surface-card {
@@ -297,6 +317,7 @@ APP_CSS = """
   border: 1px solid rgba(236, 214, 188, 0.08);
   border-radius: 18px;
   padding: 14px;
+  min-width: 0;
 }
 
 .metric-label {
@@ -310,6 +331,168 @@ APP_CSS = """
 .metric-value {
   font-size: 1rem;
   line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.control-room .control-field {
+  margin-bottom: 12px;
+}
+
+.control-room .control-field:last-of-type {
+  margin-bottom: 0;
+}
+
+.control-room input,
+.control-room textarea,
+.control-room select,
+.control-room button {
+  min-height: 48px;
+}
+
+.control-room .gr-block-label,
+.control-room label,
+.control-room .gr-form > label {
+  color: #efe2d1;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+}
+
+.control-room [role="radiogroup"] {
+  display: grid !important;
+  gap: 10px !important;
+  margin-top: 10px;
+}
+
+.control-room .control-field:first-of-type [role="radiogroup"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.control-room .control-field:nth-of-type(2) [role="radiogroup"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.control-room [role="radio"] {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 72px;
+  border: 1px solid rgba(236, 214, 188, 0.14) !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)) !important;
+  padding: 16px 18px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 10px 24px rgba(0, 0, 0, 0.16);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.control-room [role="radio"]:hover {
+  transform: translateY(-1px);
+  border-color: rgba(225, 161, 111, 0.34) !important;
+  background:
+    linear-gradient(180deg, rgba(225, 161, 111, 0.08), rgba(255, 255, 255, 0.03)) !important;
+}
+
+.control-room [role="radio"][aria-checked="true"] {
+  border-color: rgba(201, 121, 67, 0.58) !important;
+  background:
+    linear-gradient(180deg, rgba(201, 121, 67, 0.18), rgba(201, 121, 67, 0.08)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 34px rgba(108, 54, 24, 0.22);
+}
+
+.control-room [role="radio"]::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(236, 214, 188, 0.26);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: inset 0 0 0 3px rgba(25, 21, 18, 0.96);
+}
+
+.control-room [role="radio"][aria-checked="true"]::before {
+  background: var(--ea-accent-deep);
+  border-color: rgba(225, 161, 111, 0.82);
+  box-shadow:
+    inset 0 0 0 3px rgba(36, 28, 23, 0.92),
+    0 0 0 4px rgba(201, 121, 67, 0.14);
+}
+
+.control-room [role="radio"] span {
+  color: #f3e7d9 !important;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.35;
+  white-space: normal !important;
+  word-break: break-word;
+}
+
+.control-room [role="radio"] svg,
+.control-room [role="radio"] input {
+  display: none !important;
+}
+
+.control-room [data-testid="number"] {
+  margin-top: 2px;
+}
+
+.control-room [data-testid="number"] input {
+  border-radius: 18px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.control-room .gr-accordion {
+  margin-top: 4px;
+  border: 1px solid rgba(236, 214, 188, 0.12) !important;
+  border-radius: 18px !important;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+.control-room .gr-accordion summary,
+.control-room .gr-accordion button {
+  font-weight: 600;
+}
+
+.control-room .gr-accordion .label-wrap,
+.control-room .gr-accordion label {
+  color: #efe2d1 !important;
+}
+
+.control-room .gr-accordion .hide-container {
+  background: rgba(18, 15, 12, 0.18);
+}
+
+.control-room .gr-button {
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  font-size: 1.02rem;
+}
+
+.control-room .gr-button.secondary {
+  background: linear-gradient(180deg, rgba(90, 88, 94, 0.9), rgba(72, 70, 76, 0.95));
+}
+
+.control-room .gr-button.primary {
+  background: linear-gradient(135deg, #cf8450 0%, #df9a67 100%);
+}
+
+.control-room .footnote {
+  margin-top: 18px;
+  color: #c0b09f;
 }
 
 .status-reason {
@@ -440,6 +623,11 @@ APP_CSS = """
 @media (max-width: 980px) {
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .control-room .control-field:first-of-type [role="radiogroup"],
+  .control-room .control-field:nth-of-type(2) [role="radiogroup"] {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -770,7 +958,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
 
         with gr.Row(equal_height=True):
             with gr.Column(scale=4):
-                with gr.Group(elem_classes=["panel-card"]):
+                with gr.Group(elem_classes=["panel-card", "control-room"]):
                     gr.HTML(
                         """
                         <h2 class="panel-title">Control Room</h2>
@@ -779,7 +967,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                         </p>
                         """
                     )
-                    task = gr.Dropdown(
+                    task = gr.Radio(
                         choices=[
                             "easy_deadline_extraction",
                             "medium_triage_and_negotiation",
@@ -787,25 +975,35 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                         ],
                         value="easy_deadline_extraction",
                         label="Scenario",
+                        elem_classes=["control-field"],
                     )
-                    provider = gr.Dropdown(
+                    provider = gr.Radio(
                         choices=["baseline", "openrouter", "rl"],
                         value="baseline",
                         label="Policy",
+                        elem_classes=["control-field"],
                     )
-                    max_steps = gr.Number(value=12, precision=0, label="Max Steps")
+                    max_steps = gr.Number(
+                        value=12,
+                        precision=0,
+                        label="Max Steps",
+                        elem_classes=["control-field"],
+                    )
                     with gr.Accordion("Provider Settings", open=False):
                         model_name = gr.Textbox(
                             value="google/gemma-4-31b-it",
                             label="OpenRouter Model",
+                            elem_classes=["control-field"],
                         )
                         checkpoint_path = gr.Textbox(
                             value=_default_rl_checkpoint(),
                             label="RL Checkpoint Path",
+                            elem_classes=["control-field"],
                         )
                         api_key = gr.Textbox(
                             type="password",
                             label="OPENROUTER_API_KEY",
+                            elem_classes=["control-field"],
                         )
                     with gr.Row():
                         reset = gr.Button("Reset Scenario", variant="secondary")
