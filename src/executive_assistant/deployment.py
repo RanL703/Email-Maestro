@@ -20,10 +20,12 @@ DEFAULT_STAGE_IGNORE_NAMES = {
     ".git",
     ".codex",
     ".pytest_cache",
+    ".venv",
     ".venv-app",
     ".venv-training",
     ".vscode",
     "__pycache__",
+    "artifacts",
 }
 DEFAULT_STAGE_IGNORE_SUFFIXES = {
     ".pyc",
