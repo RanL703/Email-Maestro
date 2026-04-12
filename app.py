@@ -1243,7 +1243,7 @@ def openenv_step_endpoint(payload: dict | None = None) -> dict[str, object]:
     return _step_openenv(payload)
 
 
-app = gr.mount_gradio_app(api, demo, path="/")
+app = gr.mount_gradio_app(api, demo, path="/", css=APP_CSS)
 
 
 if __name__ == "__main__":
