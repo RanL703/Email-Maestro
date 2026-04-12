@@ -152,7 +152,16 @@ Current deterministic baseline scores:
 - `medium_triage_and_negotiation`: `1.0`
 - `hard_rag_reply`: `1.0`
 
-Run the required root-level inference script with the OpenAI client and hackathon env vars:
+Run the required root-level inference script through the OpenRouter API using the OpenAI client compatibility layer. The canonical setup is:
+
+```bash
+OPENROUTER_API_KEY=... \
+API_BASE_URL=https://openrouter.ai/api/v1 \
+MODEL_NAME=google/gemma-4-31b-it \
+.venv-training/bin/python inference.py
+```
+
+If a validator requires the `OPENAI_API_KEY` variable name, set it to the same OpenRouter key:
 
 ```bash
 OPENAI_API_KEY=... \
@@ -181,7 +190,7 @@ Start the deployed app runtime:
 
 To use the OpenRouter-backed Gemma policy, set `OPENROUTER_API_KEY` first and then switch `--provider openrouter`.
 
-The repository also accepts the hackathon-compatible env names `OPENAI_API_KEY`, `API_BASE_URL`, and `MODEL_NAME` for model-backed inference.
+The repository intentionally uses the `openai` Python client with `base_url=https://openrouter.ai/api/v1` and `MODEL_NAME=google/gemma-4-31b-it`. It accepts the hackathon-compatible aliases `OPENAI_API_KEY`, `API_BASE_URL`, and `MODEL_NAME`, but the provider remains OpenRouter.
 
 ## OpenEnv Validation And Submission Checklist
 

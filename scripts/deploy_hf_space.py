@@ -40,14 +40,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--team-name",
-        default=os.environ.get("HF_SPACE_TEAM_NAME", "Project Epsilon"),
+        default=os.environ.get("HF_SPACE_TEAM_NAME", "Team Epsilon"),
         help="Team name shown in the generated HF README.",
     )
     parser.add_argument(
         "--hf-usernames",
         default=os.environ.get(
             "HF_SPACE_TEAM_USERNAMES",
-            "HF_USERNAME_1,HF_USERNAME_2,HF_USERNAME_3",
+            "flickinshots,ShreyaKhatik,itsayushdey",
         ),
         help="Comma-separated HF usernames for the HF README placeholders.",
     )
@@ -60,6 +60,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--openrouter-api-key",
         default=os.environ.get("OPENROUTER_API_KEY", "").strip(),
         help="Optional secret to set on the Space during deployment.",
+    )
+    parser.add_argument(
+        "--api-base-url",
+        default=os.environ.get("API_BASE_URL", "https://openrouter.ai/api/v1").strip(),
+        help="OpenAI-compatible API base URL for inference.py. Defaults to OpenRouter.",
+    )
+    parser.add_argument(
+        "--model-name",
+        default=os.environ.get("MODEL_NAME", "google/gemma-4-31b-it").strip(),
+        help="OpenRouter model id for inference.py. Defaults to Gemma 4.",
     )
     parser.add_argument(
         "--private",
@@ -159,6 +169,9 @@ def main() -> int:
         if checkpoint_path is not None:
             messages.append(f"Bundled RL checkpoint: {checkpoint_path.relative_to(stage_dir)}")
         messages.append(maybe_set_space_secret(api, config.repo_id, "OPENROUTER_API_KEY", args.openrouter_api_key))
+        messages.append(maybe_set_space_secret(api, config.repo_id, "OPENAI_API_KEY", args.openrouter_api_key))
+        messages.append(maybe_set_space_variable(api, config.repo_id, "API_BASE_URL", args.api_base_url))
+        messages.append(maybe_set_space_variable(api, config.repo_id, "MODEL_NAME", args.model_name))
         messages.append(maybe_set_space_variable(api, config.repo_id, "OPENROUTER_APP_NAME", config.title))
         messages.append(maybe_set_space_variable(api, config.repo_id, "OPENROUTER_SITE_URL", config.app_url))
 

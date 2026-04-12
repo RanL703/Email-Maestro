@@ -65,7 +65,7 @@ To make that possible under hackathon constraints, we replaced live services wit
 - **Environment state:** in-memory SQLite workspace simulating emails, todos, files, and action history
 - **OpenEnv contract:** Pydantic models defining observations, actions, rewards, and policy decisions
 - **Execution loop:** shared `EpisodeRunner` used by tests, scripts, notebook experiments, and the Gradio app
-- **Policies:** deterministic baseline, tabular RL checkpoint replay, and optional OpenRouter-backed live policy execution
+- **Policies:** deterministic baseline, tabular RL checkpoint replay, and optional OpenRouter-backed live policy execution through the OpenAI client compatibility layer
 - **UI layer:** Gradio control room plus visible workspace snapshots for judges
 
 ## Seeded Judge Tasks
@@ -95,6 +95,8 @@ The environment includes a stakeholder email asking for exact metrics from a loc
 - App port: `7860`
 - Entry point: `python app.py`
 - Optional secret: `OPENROUTER_API_KEY`
+- OpenAI-compatible base URL: `https://openrouter.ai/api/v1`
+- Model: `google/gemma-4-31b-it`
 - Bundled RL checkpoint path: `artifacts/checkpoints/q_policy_notebook.json`
 - The Space is deployed from the same repository used for local tests and notebook-backed experiments
 

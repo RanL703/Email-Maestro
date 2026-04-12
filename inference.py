@@ -17,15 +17,25 @@ TASKS = [
 
 
 def build_openai_compatible_policy() -> OpenRouterPolicy:
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    base_url = os.environ.get("API_BASE_URL", "").strip()
-    model_name = os.environ.get("MODEL_NAME", "").strip()
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip() or os.environ.get(
+        "OPENAI_API_KEY", ""
+    ).strip()
+    base_url = (
+        os.environ.get("OPENROUTER_BASE_URL", "").strip()
+        or os.environ.get("API_BASE_URL", "").strip()
+        or "https://openrouter.ai/api/v1"
+    )
+    model_name = (
+        os.environ.get("OPENROUTER_MODEL", "").strip()
+        or os.environ.get("MODEL_NAME", "").strip()
+        or "google/gemma-4-31b-it"
+    )
     if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is required.")
+        raise RuntimeError("OPENROUTER_API_KEY or OPENAI_API_KEY is required.")
     if not base_url:
-        raise RuntimeError("API_BASE_URL is required.")
+        raise RuntimeError("API_BASE_URL or OPENROUTER_BASE_URL is required.")
     if not model_name:
-        raise RuntimeError("MODEL_NAME is required.")
+        raise RuntimeError("MODEL_NAME or OPENROUTER_MODEL is required.")
     config = OpenRouterConfig(
         api_key=api_key,
         base_url=base_url,
