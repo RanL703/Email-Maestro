@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 import uuid
 from html import escape
 
 import gradio as gr
 
-from src.executive_assistant.agent import BaselineAgent, OpenRouterPolicy
-from src.executive_assistant.config import AppRuntimeConfig, OpenRouterConfig, load_env_file
+from src.executive_assistant.agent import BaselineAgent
+from src.executive_assistant.config import AppRuntimeConfig, load_env_file
 from src.executive_assistant.env import ExecutiveAssistantEnv
 from src.executive_assistant.runner import EpisodeRunner
 from src.executive_assistant.training import QLearningPolicy, default_checkpoint_path
@@ -709,7 +708,6 @@ def render_status_card(summary_payload: dict) -> str:
         f'<div class="metric"><div class="metric-label">Final Score</div><div class="metric-value">{summary_payload["final_score"]:.2f}</div></div>'
         "</div>"
         '<div class="metric-grid">'
-        f'<div class="metric"><div class="metric-label">Model</div><div class="metric-value">{escape(str(summary_payload["model_name"] or "n/a"))}</div></div>'
         f'<div class="metric"><div class="metric-label">Checkpoint</div><div class="metric-value">{escape(str(summary_payload["checkpoint_path"] or "n/a"))}</div></div>'
         f'<div class="metric"><div class="metric-label">Completed</div><div class="metric-value">{escape(str(completed))}</div></div>'
         f'<div class="metric"><div class="metric-label">Status</div><div class="metric-value">{escape(status)}</div></div>'
@@ -743,25 +741,13 @@ def _default_rl_checkpoint() -> str:
 
 def _build_policy(
     provider: str,
-    model_name: str,
-    api_key: str,
     checkpoint_path: str,
 ) -> object:
     if provider == "baseline":
         return BaselineAgent()
     if provider == "rl":
         return QLearningPolicy.load(checkpoint_path or _default_rl_checkpoint())
-    env_api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
-    config = OpenRouterConfig(
-        api_key=env_api_key,
-        model_name=model_name,
-        site_url=os.environ.get("OPENROUTER_SITE_URL", "http://localhost:7860"),
-        app_name=os.environ.get(
-            "OPENROUTER_APP_NAME",
-            "Autonomous Executive Assistant Sandbox",
-        ),
-    )
-    return OpenRouterPolicy(config=config)
+    raise ValueError(f"Unsupported app policy provider: {provider}")
 
 
 def _trace_to_rows(trace: object) -> list[dict]:
@@ -784,7 +770,6 @@ def _summary_payload(
     task_name: str,
     provider: str,
     policy_name: str,
-    model_name: str,
     checkpoint_path: str,
     status: str,
     final_score: float,
@@ -796,7 +781,6 @@ def _summary_payload(
         "task_name": task_name,
         "requested_provider": provider,
         "policy_name": policy_name,
-        "model_name": model_name if provider == "openrouter" else None,
         "checkpoint_path": checkpoint_path if provider == "rl" else None,
         "status": status,
         "final_score": final_score,
@@ -823,24 +807,18 @@ def _step_payload(
     )
 
 
-def configure_provider_inputs(provider: str) -> tuple[dict, dict, dict]:
-    is_openrouter = provider == "openrouter"
+def configure_checkpoint_input(provider: str) -> dict:
     is_rl = provider == "rl"
-    return (
-        gr.update(visible=is_openrouter, interactive=is_openrouter),
-        gr.update(visible=is_openrouter, interactive=is_openrouter),
-        gr.update(visible=is_rl, interactive=is_rl),
-    )
+    return gr.update(visible=is_rl, interactive=is_rl)
 
 
-def build_initial_status(task_name: str, provider: str, model_name: str, checkpoint_path: str) -> str:
+def build_initial_status(task_name: str, provider: str, checkpoint_path: str) -> str:
     return render_status_card(
         _summary_payload(
             run_id="pending",
             task_name=task_name,
             provider=provider,
             policy_name="not started",
-            model_name=model_name,
             checkpoint_path=checkpoint_path or _default_rl_checkpoint(),
             status="initialized",
             final_score=0.0,
@@ -853,8 +831,6 @@ def build_initial_status(task_name: str, provider: str, model_name: str, checkpo
 def run_live_episode(
     task_name: str,
     provider: str,
-    model_name: str,
-    api_key: str,
     max_steps: int,
     checkpoint_path: str,
 ):
@@ -862,8 +838,6 @@ def run_live_episode(
     runner = EpisodeRunner(
         policy=_build_policy(
             provider=provider,
-            model_name=model_name,
-            api_key=api_key,
             checkpoint_path=checkpoint_path,
         ),
         max_steps=max_steps,
@@ -881,7 +855,6 @@ def run_live_episode(
             task_name=task_name,
             provider=provider,
             policy_name=type(runner.policy).__name__,
-            model_name=model_name,
             checkpoint_path=checkpoint_path or _default_rl_checkpoint(),
             status="initialized",
             final_score=0.0,
@@ -911,7 +884,6 @@ def run_live_episode(
                 task_name=task_name,
                 provider=provider,
                 policy_name=type(runner.policy).__name__,
-                model_name=model_name,
                 checkpoint_path=checkpoint_path or _default_rl_checkpoint(),
                 status="running" if not reward.is_done else "completed",
                 final_score=reward.total_score,
@@ -935,7 +907,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                   <h1>Executive Assistant Sandbox</h1>
                   <p>
                     Run the exact same episode loop used in training, inspect each workspace mutation in real time,
-                    and compare baseline, RL, and OpenRouter-backed policies without losing the structure of the task.
+                    and compare the deterministic baseline against the trained RL checkpoint without losing the structure of the task.
                   </p>
                   <div class="hero-strip">
                     <div class="hero-pill">Shared EpisodeRunner path</div>
@@ -963,7 +935,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                         """
                         <h2 class="panel-title">Control Room</h2>
                         <p class="panel-copy">
-                          Pick a scenario, choose a policy provider, and run a stepwise episode against the same environment used by training and evaluation.
+                          Pick a scenario, choose baseline or the trained RL JSON checkpoint, and run a stepwise episode against the same environment used by training and evaluation.
                         </p>
                         """
                     )
@@ -978,7 +950,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                         elem_classes=["control-field"],
                     )
                     provider = gr.Radio(
-                        choices=["baseline", "openrouter", "rl"],
+                        choices=["baseline", "rl"],
                         value="baseline",
                         label="Policy",
                         elem_classes=["control-field"],
@@ -990,19 +962,9 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                         elem_classes=["control-field"],
                     )
                     with gr.Accordion("Provider Settings", open=False):
-                        model_name = gr.Textbox(
-                            value="google/gemma-4-31b-it",
-                            label="OpenRouter Model",
-                            elem_classes=["control-field"],
-                        )
                         checkpoint_path = gr.Textbox(
                             value=_default_rl_checkpoint(),
                             label="RL Checkpoint Path",
-                            elem_classes=["control-field"],
-                        )
-                        api_key = gr.Textbox(
-                            type="password",
-                            label="OPENROUTER_API_KEY",
                             elem_classes=["control-field"],
                         )
                     with gr.Row():
@@ -1011,7 +973,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                     gr.HTML(
                         """
                         <p class="footnote">
-                          OpenRouter inputs appear only when needed. RL checkpoint selection stays available for policy replay without changing the execution path.
+                          The RL policy always replays a trained JSON checkpoint. OpenRouter is reserved for the separate validator-facing inference script, not the live app policy controls.
                         </p>
                         """
                     )
@@ -1021,7 +983,6 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                     build_initial_status(
                         "easy_deadline_extraction",
                         "baseline",
-                        "google/gemma-4-31b-it",
                         _default_rl_checkpoint(),
                     )
                 )
@@ -1053,17 +1014,17 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
     )
     reset.click(
         fn=build_initial_status,
-        inputs=[task, provider, model_name, checkpoint_path],
+        inputs=[task, provider, checkpoint_path],
         outputs=[status_card],
     )
     provider.change(
-        fn=configure_provider_inputs,
+        fn=configure_checkpoint_input,
         inputs=[provider],
-        outputs=[model_name, api_key, checkpoint_path],
+        outputs=[checkpoint_path],
     )
     provider.change(
         fn=build_initial_status,
-        inputs=[task, provider, model_name, checkpoint_path],
+        inputs=[task, provider, checkpoint_path],
         outputs=[status_card],
     )
     task.change(
@@ -1073,12 +1034,12 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
     )
     task.change(
         fn=build_initial_status,
-        inputs=[task, provider, model_name, checkpoint_path],
+        inputs=[task, provider, checkpoint_path],
         outputs=[status_card],
     )
     run_episode_btn.click(
         fn=run_live_episode,
-        inputs=[task, provider, model_name, api_key, max_steps, checkpoint_path],
+        inputs=[task, provider, max_steps, checkpoint_path],
         outputs=[observation, status_card, emails, todos, files, action_log, trace_table, summary],
     )
 
@@ -1088,9 +1049,9 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
         outputs=[observation, emails, todos, files, action_log],
     )
     demo.load(
-        fn=configure_provider_inputs,
+        fn=configure_checkpoint_input,
         inputs=[provider],
-        outputs=[model_name, api_key, checkpoint_path],
+        outputs=[checkpoint_path],
     )
     demo.load(
         fn=render_scenario_brief,
@@ -1099,7 +1060,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
     )
     demo.load(
         fn=build_initial_status,
-        inputs=[task, provider, model_name, checkpoint_path],
+        inputs=[task, provider, checkpoint_path],
         outputs=[status_card],
     )
 

@@ -11,8 +11,6 @@ def test_app_builds_rl_policy_from_checkpoint(tmp_path) -> None:
     checkpoint = policy.save(tmp_path / "q_policy.json")
     loaded_policy = _build_policy(
         provider="rl",
-        model_name="google/gemma-4-31b-it",
-        api_key="",
         checkpoint_path=str(checkpoint),
     )
     assert loaded_policy.epsilon == 0.0
@@ -26,8 +24,6 @@ def test_app_stepwise_episode_generator_yields_updates(tmp_path) -> None:
     generator = run_live_episode(
         task_name="hard_rag_reply",
         provider="rl",
-        model_name="google/gemma-4-31b-it",
-        api_key="",
         max_steps=12,
         checkpoint_path=str(checkpoint),
     )

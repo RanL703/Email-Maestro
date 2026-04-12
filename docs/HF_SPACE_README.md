@@ -65,7 +65,8 @@ To make that possible under hackathon constraints, we replaced live services wit
 - **Environment state:** in-memory SQLite workspace simulating emails, todos, files, and action history
 - **OpenEnv contract:** Pydantic models defining observations, actions, rewards, and policy decisions
 - **Execution loop:** shared `EpisodeRunner` used by tests, scripts, notebook experiments, and the Gradio app
-- **Policies:** deterministic baseline, tabular RL checkpoint replay, and optional OpenRouter-backed live policy execution through the OpenAI client compatibility layer
+- **App policies:** deterministic baseline and tabular RL checkpoint replay
+- **Validator inference:** OpenRouter-backed Gemma execution through the OpenAI client compatibility layer
 - **UI layer:** Gradio control room plus visible workspace snapshots for judges
 
 ## Seeded Judge Tasks
@@ -87,7 +88,7 @@ The environment includes a stakeholder email asking for exact metrics from a loc
 - Live observation payloads
 - Workspace tables for emails, todos, files, and action logs
 - Step-by-step trace rows with reasoning, action type, status, score, and done state
-- Differences between `baseline`, bundled `rl`, and optional `openrouter` policies
+- Differences between `baseline` and the bundled `rl` checkpoint policy
 
 ## Runtime And Deployment Notes
 
@@ -105,8 +106,8 @@ The environment includes a stakeholder email asking for exact metrics from a loc
 1. Open the Space and choose one of the seeded scenarios.
 2. Run the deterministic `baseline` policy for a guaranteed reference trace.
 3. Switch to `rl` to replay the bundled learned checkpoint.
-4. Add `OPENROUTER_API_KEY` in Space secrets to enable the live model-backed path.
-5. Compare how the workspace mutates after each step instead of evaluating only the final response.
+4. Compare how the workspace mutates after each step instead of evaluating only the final response.
+5. Use the root `inference.py` path for OpenRouter-backed Gemma evaluation when the validator runs model inference.
 
 ## Implementation Notes
 

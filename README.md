@@ -10,7 +10,7 @@ This repository is scaffolded from the product requirements in [PRD.md](./PRD.md
 
 - a Python package layout for the environment, agent, graders, and seed data
 - an OpenEnv-oriented contract using Pydantic models
-- an OpenRouter-backed Gemma policy layer for live model execution
+- an OpenRouter-backed Gemma inference path through the OpenAI client for validator-facing model execution
 - a tabular RL training pipeline with rollout export and checkpointing
 - separate app and training environments, including a registered Jupyter kernel
 
@@ -188,7 +188,7 @@ Start the deployed app runtime:
 .venv-app/bin/python app.py
 ```
 
-To use the OpenRouter-backed Gemma policy, set `OPENROUTER_API_KEY` first and then switch `--provider openrouter`.
+The live Gradio app intentionally exposes only `baseline` and `rl`; the `rl` policy always loads the trained JSON checkpoint. OpenRouter-backed Gemma inference remains available through the root-level [inference.py](/home/ranl/code/scalerhack2/inference.py) script and CLI tooling for validation.
 
 The repository intentionally uses the `openai` Python client with `base_url=https://openrouter.ai/api/v1` and `MODEL_NAME=google/gemma-4-31b-it`. It accepts the hackathon-compatible aliases `OPENAI_API_KEY`, `API_BASE_URL`, and `MODEL_NAME`, but the provider remains OpenRouter.
 
