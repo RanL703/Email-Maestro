@@ -95,6 +95,7 @@ The environment includes a stakeholder email asking for exact metrics from a loc
 - SDK: `docker`
 - App port: `7860`
 - Entry point: `python app.py`
+- OpenEnv API endpoints: `POST /openenv/reset`, `POST /openenv/step`, `GET /openenv/state`, `GET /health`
 - Optional secret: `OPENROUTER_API_KEY`
 - OpenAI-compatible base URL: `https://openrouter.ai/api/v1`
 - Model: `google/gemma-4-31b-it`

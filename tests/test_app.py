@@ -84,3 +84,32 @@ def test_app_stepwise_episode_generator_yields_updates(tmp_path, monkeypatch) ->
         pass
     assert later_frame is not None
     assert "reply drafted" in later_frame[0] or "search returned" in later_frame[0]
+
+
+def test_openenv_reset_step_state_endpoints() -> None:
+    from fastapi.testclient import TestClient
+
+    from app import app
+
+    client = TestClient(app)
+    reset_response = client.post(
+        "/openenv/reset",
+        json={"task_name": "easy_deadline_extraction"},
+    )
+    assert reset_response.status_code == 200
+    reset_payload = reset_response.json()
+    assert reset_payload["observation"]["unread_emails"]
+
+    email_id = reset_payload["observation"]["unread_emails"][0]["id"]
+    step_response = client.post(
+        "/openenv/step",
+        json={"action": {"action_type": "read_email", "target_id": email_id}},
+    )
+    assert step_response.status_code == 200
+    step_payload = step_response.json()
+    assert step_payload["done"] is False
+    assert step_payload["observation"]["current_email"]["id"] == email_id
+
+    state_response = client.get("/openenv/state")
+    assert state_response.status_code == 200
+    assert state_response.json()["state"]["task_name"] == "easy_deadline_extraction"

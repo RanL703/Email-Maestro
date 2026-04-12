@@ -40,6 +40,15 @@ The environment entrypoint is [src/executive_assistant/env.py](/home/ranl/code/s
 - `state()` returns the current environment state, including the observation snapshot and full workspace tables.
 - [openenv.yaml](./openenv.yaml) binds the environment class and typed models together.
 
+The Hugging Face Space also exposes validator-friendly HTTP endpoints alongside the Gradio UI:
+
+- `POST /openenv/reset`
+- `POST /openenv/step`
+- `GET /openenv/state`
+- `GET /health`
+
+The shorter `/reset`, `/step`, and `/state` aliases are also available for validators that probe non-prefixed routes.
+
 ### Observation Space
 
 `WorkspaceObservation` includes:

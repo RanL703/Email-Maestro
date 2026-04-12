@@ -70,12 +70,21 @@ def main() -> None:
     parser.add_argument("--max-steps", type=int, default=12)
     args = parser.parse_args()
 
+    print("START")
     traces = run_policy_suite(
         policy=build_openai_compatible_policy(),
         task_names=TASKS,
         max_steps=args.max_steps,
     )
+    for task_name, trace in traces.items():
+        print(
+            "STEP "
+            f"task={task_name} "
+            f"score={trace.final_score:.4f} "
+            f"completed={trace.completed}"
+        )
     print(json.dumps(summarize_traces(traces), indent=2))
+    print("END")
 
 
 if __name__ == "__main__":

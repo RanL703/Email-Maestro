@@ -7,11 +7,13 @@ import uuid
 from html import escape
 
 import gradio as gr
+import uvicorn
+from fastapi import FastAPI
 
 from src.executive_assistant.agent import BaselineAgent, OpenRouterPolicy
 from src.executive_assistant.config import AppRuntimeConfig, OpenRouterConfig, load_env_file
 from src.executive_assistant.env import ExecutiveAssistantEnv
-from src.executive_assistant.models import PolicyDecision, WorkspaceObservation
+from src.executive_assistant.models import AssistantAction, PolicyDecision, WorkspaceObservation
 from src.executive_assistant.runner import EpisodeRunner
 from src.executive_assistant.training import QLearningPolicy, default_checkpoint_path, train_q_learning
 
@@ -22,6 +24,9 @@ TODO_COLUMNS = ["id", "task_name", "deadline_date", "context"]
 FILE_COLUMNS = ["id", "filename", "content_text"]
 ACTION_LOG_COLUMNS = ["id", "action_type", "target_id", "payload", "secondary_payload", "status"]
 TRACE_COLUMNS = ["step", "reasoning", "action_type", "status", "score", "done"]
+DEFAULT_API_TASK = "easy_deadline_extraction"
+api_env = ExecutiveAssistantEnv(task_name=DEFAULT_API_TASK)
+api_observation = api_env.reset()
 APP_CSS = """
 :root {
   color-scheme: dark;
@@ -812,24 +817,10 @@ class OpenRouterGuidedCheckpointPolicy:
 
 
 def _build_openrouter_policy() -> OpenRouterPolicy | None:
-    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip() or os.environ.get(
-        "OPENAI_API_KEY",
-        "",
-    ).strip()
-    if not api_key:
+    try:
+        config = OpenRouterConfig.from_env()
+    except RuntimeError:
         return None
-    config = OpenRouterConfig(
-        api_key=api_key,
-        base_url=os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-        model_name=os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it"),
-        site_url=os.environ.get("OPENROUTER_SITE_URL", "http://localhost:7860"),
-        app_name=os.environ.get(
-            "OPENROUTER_APP_NAME",
-            "EmailMaestro | Executive Assistant Sandbox",
-        ),
-        temperature=float(os.environ.get("OPENROUTER_TEMPERATURE", "0.1")),
-        max_tokens=int(os.environ.get("OPENROUTER_MAX_TOKENS", "600")),
-    )
     return OpenRouterPolicy(config=config)
 
 
@@ -1164,11 +1155,100 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
         outputs=[status_card],
     )
 
+api = FastAPI(title="EmailMaestro OpenEnv API")
+
+
+def _task_from_payload(payload: dict | None) -> str:
+    if not payload:
+        return DEFAULT_API_TASK
+    return str(
+        payload.get("task_name")
+        or payload.get("task")
+        or payload.get("task_id")
+        or DEFAULT_API_TASK
+    )
+
+
+def _reset_openenv(payload: dict | None = None) -> dict[str, object]:
+    global api_env, api_observation
+    task_name = _task_from_payload(payload)
+    api_env = ExecutiveAssistantEnv(task_name=task_name)
+    api_observation = api_env.reset()
+    return {
+        "observation": api_observation.model_dump(),
+        "state": api_env.state(),
+        "info": {
+            "task_name": task_name,
+            "status": api_observation.last_action_status,
+        },
+    }
+
+
+def _state_openenv() -> dict[str, object]:
+    return {
+        "observation": api_observation.model_dump(),
+        "state": api_env.state(),
+        "info": {
+            "task_name": api_env.task_name,
+            "status": api_observation.last_action_status,
+        },
+    }
+
+
+def _step_openenv(payload: dict | None = None) -> dict[str, object]:
+    global api_observation
+    action_payload = (payload or {}).get("action", payload or {})
+    action = AssistantAction.model_validate(action_payload)
+    api_observation, reward, done, info = api_env.step(action)
+    return {
+        "observation": api_observation.model_dump(),
+        "reward": reward.model_dump(),
+        "done": done,
+        "info": info,
+    }
+
+
+@api.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@api.post("/reset")
+def reset_endpoint(payload: dict | None = None) -> dict[str, object]:
+    return _reset_openenv(payload)
+
+
+@api.post("/openenv/reset")
+def openenv_reset_endpoint(payload: dict | None = None) -> dict[str, object]:
+    return _reset_openenv(payload)
+
+
+@api.get("/state")
+def state_endpoint() -> dict[str, object]:
+    return _state_openenv()
+
+
+@api.get("/openenv/state")
+def openenv_state_endpoint() -> dict[str, object]:
+    return _state_openenv()
+
+
+@api.post("/step")
+def step_endpoint(payload: dict | None = None) -> dict[str, object]:
+    return _step_openenv(payload)
+
+
+@api.post("/openenv/step")
+def openenv_step_endpoint(payload: dict | None = None) -> dict[str, object]:
+    return _step_openenv(payload)
+
+
+app = gr.mount_gradio_app(api, demo, path="/")
+
 
 if __name__ == "__main__":
-    demo.launch(
-        server_name=APP_RUNTIME.host,
-        server_port=APP_RUNTIME.port,
-        show_error=True,
-        css=APP_CSS,
+    uvicorn.run(
+        app,
+        host=APP_RUNTIME.host,
+        port=APP_RUNTIME.port,
     )

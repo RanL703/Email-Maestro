@@ -1,5 +1,7 @@
+fastapi>=0.115.0
 gradio>=5.0.0
 openai>=1.76.0
 pydantic>=2.8.0
 pytest>=8.0.0
 PyYAML>=6.0.0
+uvicorn>=0.30.0
