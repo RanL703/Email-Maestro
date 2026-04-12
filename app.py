@@ -11,7 +11,7 @@ from src.executive_assistant.agent import BaselineAgent
 from src.executive_assistant.config import AppRuntimeConfig, load_env_file
 from src.executive_assistant.env import ExecutiveAssistantEnv
 from src.executive_assistant.runner import EpisodeRunner
-from src.executive_assistant.training import QLearningPolicy, default_checkpoint_path
+from src.executive_assistant.training import QLearningPolicy, default_checkpoint_path, train_q_learning
 
 load_env_file(AppRuntimeConfig().env_file)
 APP_RUNTIME = AppRuntimeConfig()
@@ -739,6 +739,25 @@ def _default_rl_checkpoint() -> str:
     )
 
 
+def _ensure_rl_checkpoint(checkpoint_path: str) -> str:
+    path = default_checkpoint_path(
+        APP_RUNTIME.checkpoint_dir,
+        APP_RUNTIME.default_checkpoint_name,
+    )
+    if checkpoint_path:
+        path = default_checkpoint_path("", checkpoint_path)
+    if path.exists():
+        return str(path)
+
+    policy, _ = train_q_learning(
+        episodes=300,
+        epsilon=0.15,
+        teacher=BaselineAgent(),
+    )
+    saved_path = policy.save(path)
+    return str(saved_path)
+
+
 def _build_policy(
     provider: str,
     checkpoint_path: str,
@@ -746,7 +765,7 @@ def _build_policy(
     if provider == "baseline":
         return BaselineAgent()
     if provider == "rl":
-        return QLearningPolicy.load(checkpoint_path or _default_rl_checkpoint())
+        return QLearningPolicy.load(_ensure_rl_checkpoint(checkpoint_path or _default_rl_checkpoint()))
     raise ValueError(f"Unsupported app policy provider: {provider}")
 
 

@@ -16,6 +16,18 @@ def test_app_builds_rl_policy_from_checkpoint(tmp_path) -> None:
     assert loaded_policy.epsilon == 0.0
 
 
+def test_app_builds_missing_rl_checkpoint(tmp_path) -> None:
+    from app import _build_policy
+
+    checkpoint = tmp_path / "missing" / "q_policy.json"
+    loaded_policy = _build_policy(
+        provider="rl",
+        checkpoint_path=str(checkpoint),
+    )
+    assert loaded_policy.epsilon == 0.0
+    assert checkpoint.exists()
+
+
 def test_app_stepwise_episode_generator_yields_updates(tmp_path) -> None:
     from app import run_live_episode
 
