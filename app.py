@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 from html import escape
 
 import gradio as gr
 
-from src.executive_assistant.agent import BaselineAgent
-from src.executive_assistant.config import AppRuntimeConfig, load_env_file
+from src.executive_assistant.agent import BaselineAgent, OpenRouterPolicy
+from src.executive_assistant.config import AppRuntimeConfig, OpenRouterConfig, load_env_file
 from src.executive_assistant.env import ExecutiveAssistantEnv
+from src.executive_assistant.models import PolicyDecision, WorkspaceObservation
 from src.executive_assistant.runner import EpisodeRunner
 from src.executive_assistant.training import QLearningPolicy, default_checkpoint_path, train_q_learning
 
@@ -758,6 +760,79 @@ def _ensure_rl_checkpoint(checkpoint_path: str) -> str:
     return str(saved_path)
 
 
+class OpenRouterGuidedCheckpointPolicy:
+    def __init__(
+        self,
+        checkpoint_policy: QLearningPolicy,
+        model_policy: OpenRouterPolicy | None,
+    ) -> None:
+        self.checkpoint_policy = checkpoint_policy
+        self.model_policy = model_policy
+
+    def choose_action(self, task_name: str, observation: WorkspaceObservation) -> PolicyDecision:
+        checkpoint_decision = self.checkpoint_policy.choose_action(task_name, observation)
+        if self.model_policy is None:
+            return PolicyDecision(
+                reasoning=(
+                    "OpenRouter model is not configured; using the trained RL checkpoint action. "
+                    f"{checkpoint_decision.reasoning}"
+                ),
+                action=checkpoint_decision.action,
+            )
+        guided_observation = observation.model_copy(
+            update={
+                "action_history": observation.action_history
+                + [
+                    (
+                        "Trained RL checkpoint recommendation: "
+                        f"reasoning={checkpoint_decision.reasoning}; "
+                        f"action={checkpoint_decision.action.model_dump()}"
+                    )
+                ]
+            }
+        )
+        try:
+            model_decision = self.model_policy.choose_action(task_name, guided_observation)
+        except Exception as exc:
+            return PolicyDecision(
+                reasoning=(
+                    f"OpenRouter model call failed ({exc}); using the trained RL checkpoint action. "
+                    f"{checkpoint_decision.reasoning}"
+                ),
+                action=checkpoint_decision.action,
+            )
+        return PolicyDecision(
+            reasoning=(
+                "OpenRouter Gemma generated this action using the trained RL checkpoint recommendation. "
+                f"Model reasoning: {model_decision.reasoning} | Checkpoint recommendation: "
+                f"{checkpoint_decision.reasoning}"
+            ),
+            action=model_decision.action,
+        )
+
+
+def _build_openrouter_policy() -> OpenRouterPolicy | None:
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip() or os.environ.get(
+        "OPENAI_API_KEY",
+        "",
+    ).strip()
+    if not api_key:
+        return None
+    config = OpenRouterConfig(
+        api_key=api_key,
+        base_url=os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+        model_name=os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it"),
+        site_url=os.environ.get("OPENROUTER_SITE_URL", "http://localhost:7860"),
+        app_name=os.environ.get(
+            "OPENROUTER_APP_NAME",
+            "EmailMaestro | Executive Assistant Sandbox",
+        ),
+        temperature=float(os.environ.get("OPENROUTER_TEMPERATURE", "0.1")),
+        max_tokens=int(os.environ.get("OPENROUTER_MAX_TOKENS", "600")),
+    )
+    return OpenRouterPolicy(config=config)
+
+
 def _build_policy(
     provider: str,
     checkpoint_path: str,
@@ -765,7 +840,13 @@ def _build_policy(
     if provider == "baseline":
         return BaselineAgent()
     if provider == "rl":
-        return QLearningPolicy.load(_ensure_rl_checkpoint(checkpoint_path or _default_rl_checkpoint()))
+        checkpoint_policy = QLearningPolicy.load(
+            _ensure_rl_checkpoint(checkpoint_path or _default_rl_checkpoint())
+        )
+        return OpenRouterGuidedCheckpointPolicy(
+            checkpoint_policy=checkpoint_policy,
+            model_policy=_build_openrouter_policy(),
+        )
     raise ValueError(f"Unsupported app policy provider: {provider}")
 
 
@@ -926,7 +1007,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                   <h1>Executive Assistant Sandbox</h1>
                   <p>
                     Run the exact same episode loop used in training, inspect each workspace mutation in real time,
-                    and compare the deterministic baseline against the trained RL checkpoint without losing the structure of the task.
+                    and compare the deterministic baseline against the OpenRouter-guided RL checkpoint without losing the structure of the task.
                   </p>
                   <div class="hero-strip">
                     <div class="hero-pill">Shared EpisodeRunner path</div>
@@ -954,7 +1035,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                         """
                         <h2 class="panel-title">Control Room</h2>
                         <p class="panel-copy">
-                          Pick a scenario, choose baseline or the trained RL JSON checkpoint, and run a stepwise episode against the same environment used by training and evaluation.
+                          Pick a scenario, choose baseline or the OpenRouter-guided trained RL JSON checkpoint, and run a stepwise episode against the same environment used by training and evaluation.
                         </p>
                         """
                     )
@@ -992,7 +1073,7 @@ with gr.Blocks(title="Autonomous Executive Assistant Sandbox") as demo:
                     gr.HTML(
                         """
                         <p class="footnote">
-                          The RL policy always replays a trained JSON checkpoint. OpenRouter is reserved for the separate validator-facing inference script, not the live app policy controls.
+                          The RL policy loads the trained JSON checkpoint as guidance, then asks OpenRouter Gemma through the OpenAI client to generate the runtime action. If the model call fails, it falls back to the checkpoint action.
                         </p>
                         """
                     )

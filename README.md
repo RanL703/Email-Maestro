@@ -188,7 +188,7 @@ Start the deployed app runtime:
 .venv-app/bin/python app.py
 ```
 
-The live Gradio app intentionally exposes only `baseline` and `rl`; the `rl` policy always loads the trained JSON checkpoint. OpenRouter-backed Gemma inference remains available through the root-level [inference.py](/home/ranl/code/scalerhack2/inference.py) script and CLI tooling for validation.
+The live Gradio app intentionally exposes only `baseline` and `rl`. In `rl` mode, the app loads the trained JSON checkpoint, injects that checkpoint recommendation into the observation context, and asks OpenRouter Gemma through the OpenAI client to generate the runtime action. If the model call fails, the app falls back to the checkpoint action so the demo remains runnable.
 
 The repository intentionally uses the `openai` Python client with `base_url=https://openrouter.ai/api/v1` and `MODEL_NAME=google/gemma-4-31b-it`. It accepts the hackathon-compatible aliases `OPENAI_API_KEY`, `API_BASE_URL`, and `MODEL_NAME`, but the provider remains OpenRouter.
 

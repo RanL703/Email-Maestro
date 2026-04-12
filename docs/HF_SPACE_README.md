@@ -65,7 +65,7 @@ To make that possible under hackathon constraints, we replaced live services wit
 - **Environment state:** in-memory SQLite workspace simulating emails, todos, files, and action history
 - **OpenEnv contract:** Pydantic models defining observations, actions, rewards, and policy decisions
 - **Execution loop:** shared `EpisodeRunner` used by tests, scripts, notebook experiments, and the Gradio app
-- **App policies:** deterministic baseline and tabular RL checkpoint replay
+- **App policies:** deterministic baseline and an RL mode where OpenRouter Gemma generates actions using the tabular RL checkpoint recommendation as guidance
 - **Validator inference:** OpenRouter-backed Gemma execution through the OpenAI client compatibility layer
 - **UI layer:** Gradio control room plus visible workspace snapshots for judges
 
@@ -88,7 +88,7 @@ The environment includes a stakeholder email asking for exact metrics from a loc
 - Live observation payloads
 - Workspace tables for emails, todos, files, and action logs
 - Step-by-step trace rows with reasoning, action type, status, score, and done state
-- Differences between `baseline` and the bundled `rl` checkpoint policy
+- Differences between `baseline` and the OpenRouter-guided bundled `rl` checkpoint policy
 
 ## Runtime And Deployment Notes
 
@@ -105,7 +105,7 @@ The environment includes a stakeholder email asking for exact metrics from a loc
 
 1. Open the Space and choose one of the seeded scenarios.
 2. Run the deterministic `baseline` policy for a guaranteed reference trace.
-3. Switch to `rl` to replay the bundled learned checkpoint.
+3. Switch to `rl` so Gemma receives the learned checkpoint recommendation and generates the runtime action.
 4. Compare how the workspace mutates after each step instead of evaluating only the final response.
 5. Use the root `inference.py` path for OpenRouter-backed Gemma evaluation when the validator runs model inference.
 
